@@ -10,16 +10,22 @@ interface Action {
 
 interface Player {
   name: string;
-  hp: number;
-  maxHp: number;
   qi: number;
   lastAction: Action | null;
-  shieldLevel: number; // current active shield
 }
 
 interface LogEntry {
   text: string;
-  type: 'info' | 'attack' | 'defend' | 'inhale' | 'damage' | 'system';
+  type: 'info' | 'attack' | 'defend' | 'inhale' | 'death' | 'system';
+}
+
+interface BattleRecord {
+  id: number;
+  winner: string;
+  loser: string;
+  rounds: number;
+  lastAction: string;
+  timestamp: string;
 }
 
 function App() {
@@ -28,26 +34,23 @@ function App() {
   const [round, setRound] = useState(1);
   const [player, setPlayer] = useState<Player>({
     name: '玩家',
-    hp: 20,
-    maxHp: 20,
     qi: 0,
     lastAction: null,
-    shieldLevel: 0,
   });
   const [opponent, setOpponent] = useState<Player>({
     name: '对手',
-    hp: 20,
-    maxHp: 20,
     qi: 0,
     lastAction: null,
-    shieldLevel: 0,
   });
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<number>(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
+  const [loser, setLoser] = useState<string | null>(null);
+  const [deathMessage, setDeathMessage] = useState<string>('');
   const [showToast, setShowToast] = useState(false);
+  const [battleRecords, setBattleRecords] = useState<BattleRecord[]>([]);
   const logRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll log
@@ -78,24 +81,12 @@ function App() {
     setPhase('countdown');
     setCountdown(3);
     setRound(1);
-    setPlayer({
-      name: '玩家',
-      hp: 20,
-      maxHp: 20,
-      qi: 0,
-      lastAction: null,
-      shieldLevel: 0,
-    });
-    setOpponent({
-      name: '对手',
-      hp: 20,
-      maxHp: 20,
-      qi: 0,
-      lastAction: null,
-      shieldLevel: 0,
-    });
+    setPlayer({ name: '玩家', qi: 0, lastAction: null });
+    setOpponent({ name: '对手', qi: 0, lastAction: null });
     setLogs([]);
     setWinner(null);
+    setLoser(null);
+    setDeathMessage('');
     setSelectedAction(null);
     setSelectedLevel(1);
   };
@@ -129,24 +120,22 @@ function App() {
   // AI opponent decision
   const getAIAction = (ai: Player): Action => {
     const rand = Math.random();
-    
-    // Simple AI strategy
+
     if (ai.qi === 0 || (ai.qi <= 1 && rand < 0.4)) {
       return { type: 'inhale', level: 1 };
     }
-    
-    if (rand < 0.35) {
-      // Attack
+
+    if (rand < 0.4) {
+      // Attack - prefer higher levels when possible
       const availableLevels = getAvailableLevels('attack', ai.qi);
       if (availableLevels.length > 0) {
-        // Prefer higher level attacks when possible
         const levelIdx = Math.min(
-          Math.floor(Math.random() * availableLevels.length),
+          Math.floor(Math.random() * availableLevels.length * 0.7 + availableLevels.length * 0.3),
           availableLevels.length - 1
         );
         return { type: 'attack', level: availableLevels[levelIdx] };
       }
-    } else if (rand < 0.6) {
+    } else if (rand < 0.65) {
       // Defend
       const availableLevels = getAvailableLevels('defend', ai.qi);
       if (availableLevels.length > 0) {
@@ -154,125 +143,150 @@ function App() {
         return { type: 'defend', level: availableLevels[levelIdx] };
       }
     }
-    
-    // Default: inhale
+
     return { type: 'inhale', level: 1 };
+  };
+
+  // Get defense level for an action (inhale = 0, defend = level, attack = 0)
+  const getDefenseLevel = (action: Action): number => {
+    if (action.type === 'defend') return action.level;
+    return 0; // inhale or attack = no defense
   };
 
   // Resolve round
   const resolveRound = useCallback((playerAction: Action, aiAction: Action) => {
-    let newPlayerHp = player.hp;
-    let newOpponentHp = opponent.hp;
     let newPlayerQi = player.qi;
     let newOpponentQi = opponent.qi;
-    let newPlayerShield = 0;
-    let newOpponentShield = 0;
     const newLogs: LogEntry[] = [];
+    let playerDied = false;
+    let opponentDied = false;
+    let msg = '';
 
-    // Process player action
+    // Process qi costs first
     if (playerAction.type === 'inhale') {
       newPlayerQi += 1;
-      newLogs.push({ text: `🌬️ ${player.name}吸了一口气！气数+1（当前：${newPlayerQi}）`, type: 'inhale' });
-    } else if (playerAction.type === 'defend') {
-      const cost = getQiCost('defend', playerAction.level);
-      newPlayerQi -= cost;
-      newPlayerShield = playerAction.level;
-      newLogs.push({ text: `🛡️ ${player.name}展开${playerAction.level}级防御！（消耗${cost}气）`, type: 'defend' });
-    } else if (playerAction.type === 'attack') {
-      const cost = getQiCost('attack', playerAction.level);
-      newPlayerQi -= cost;
-      const damage = playerAction.level;
-      // Check if opponent has shield
-      if (opponent.shieldLevel > 0) {
-        const blocked = Math.min(damage, opponent.shieldLevel);
-        const actualDamage = damage - blocked;
-        newOpponentHp -= actualDamage;
-        if (blocked > 0) {
-          newLogs.push({ text: `⚡ ${player.name}发动${playerAction.level}级攻击！对手${opponent.shieldLevel}级防御挡住了${blocked}点，造成${actualDamage}点伤害！`, type: 'attack' });
-        } else {
-          newLogs.push({ text: `⚡ ${player.name}发动${playerAction.level}级攻击！造成${damage}点伤害！`, type: 'attack' });
-        }
-      } else {
-        newOpponentHp -= damage;
-        newLogs.push({ text: `⚡ ${player.name}发动${playerAction.level}级攻击！造成${damage}点伤害！`, type: 'attack' });
-      }
+    } else {
+      newPlayerQi -= getQiCost(playerAction.type, playerAction.level);
     }
 
-    // Process AI action
     if (aiAction.type === 'inhale') {
       newOpponentQi += 1;
-      newLogs.push({ text: `🌬️ ${opponent.name}吸了一口气！气数+1（当前：${newOpponentQi}）`, type: 'inhale' });
-    } else if (aiAction.type === 'defend') {
-      const cost = getQiCost('defend', aiAction.level);
-      newOpponentQi -= cost;
-      newOpponentShield = aiAction.level;
-      newLogs.push({ text: `🛡️ ${opponent.name}展开${aiAction.level}级防御！（消耗${cost}气）`, type: 'defend' });
-    } else if (aiAction.type === 'attack') {
-      const cost = getQiCost('attack', aiAction.level);
-      newOpponentQi -= cost;
-      const damage = aiAction.level;
-      // Check if player has shield
-      if (player.shieldLevel > 0) {
-        const blocked = Math.min(damage, player.shieldLevel);
-        const actualDamage = damage - blocked;
-        newPlayerHp -= actualDamage;
-        if (blocked > 0) {
-          newLogs.push({ text: `💥 ${opponent.name}发动${aiAction.level}级攻击！你的${player.shieldLevel}级防御挡住了${blocked}点，受到${actualDamage}点伤害！`, type: 'damage' });
-        } else {
-          newLogs.push({ text: `💥 ${opponent.name}发动${aiAction.level}级攻击！你受到${damage}点伤害！`, type: 'damage' });
-        }
-      } else {
-        newPlayerHp -= damage;
-        newLogs.push({ text: `💥 ${opponent.name}发动${aiAction.level}级攻击！你受到${damage}点伤害！`, type: 'damage' });
-      }
+    } else {
+      newOpponentQi -= getQiCost(aiAction.type, aiAction.level);
     }
 
-    // Clamp HP
-    newPlayerHp = Math.max(0, newPlayerHp);
-    newOpponentHp = Math.max(0, newOpponentHp);
+    // Log actions
+    const actionText = (who: string, action: Action) => {
+      if (action.type === 'inhale') return `🌬️ ${who}吸了一口气！（气数+1）`;
+      if (action.type === 'defend') return `🛡️ ${who}展开${action.level}级防御！`;
+      return `⚡ ${who}发动${action.level}级攻击！`;
+    };
+
+    newLogs.push({ text: actionText(player.name, playerAction), type: playerAction.type === 'attack' ? 'attack' : playerAction.type === 'defend' ? 'defend' : 'inhale' });
+    newLogs.push({ text: actionText(opponent.name, aiAction), type: aiAction.type === 'attack' ? 'attack' : aiAction.type === 'defend' ? 'defend' : 'inhale' });
+
+    // Resolve combat
+    const playerAttacks = playerAction.type === 'attack';
+    const aiAttacks = aiAction.type === 'attack';
+    const playerDefends = getDefenseLevel(playerAction);
+    const aiDefends = getDefenseLevel(aiAction);
+
+    if (playerAttacks && aiAttacks) {
+      // Both attack - both die (no defense)
+      playerDied = true;
+      opponentDied = true;
+      newLogs.push({ text: `💀 双方同时攻击，无人防御，同归于尽！`, type: 'death' });
+      msg = '双方同归于尽！';
+    } else if (playerAttacks && !aiAttacks) {
+      // Player attacks, AI defends/inhales
+      if (playerAction.level > aiDefends) {
+        opponentDied = true;
+        if (aiAction.type === 'inhale') {
+          newLogs.push({ text: `💀 ${opponent.name}正在吸气，毫无防备，被${playerAction.level}级攻击击杀！`, type: 'death' });
+          msg = `${opponent.name}在吸气时被击杀！`;
+        } else {
+          newLogs.push({ text: `💀 ${opponent.name}的${aiAction.level}级防御无法抵挡${playerAction.level}级攻击，被击杀！`, type: 'death' });
+          msg = `${playerAction.level}级攻击击破了${aiAction.level}级防御！`;
+        }
+      } else {
+        newLogs.push({ text: `✅ ${opponent.name}的${aiDefends}级防御成功抵挡了${playerAction.level}级攻击！`, type: 'defend' });
+      }
+    } else if (!playerAttacks && aiAttacks) {
+      // AI attacks, player defends/inhales
+      if (aiAction.level > playerDefends) {
+        playerDied = true;
+        if (playerAction.type === 'inhale') {
+          newLogs.push({ text: `💀 你正在吸气，毫无防备，被${aiAction.level}级攻击击杀！`, type: 'death' });
+          msg = '你在吸气时被击杀！';
+        } else {
+          newLogs.push({ text: `💀 你的${playerAction.level}级防御无法抵挡${aiAction.level}级攻击，被击杀！`, type: 'death' });
+          msg = `${aiAction.level}级攻击击破了你的${playerAction.level}级防御！`;
+        }
+      } else {
+        newLogs.push({ text: `✅ 你的${playerDefends}级防御成功抵挡了${aiAction.level}级攻击！`, type: 'defend' });
+      }
+    }
+    // If neither attacks, nothing happens - both survive
 
     // Update states
     setPlayer(prev => ({
       ...prev,
-      hp: newPlayerHp,
       qi: newPlayerQi,
       lastAction: playerAction,
-      shieldLevel: newPlayerShield,
     }));
     setOpponent(prev => ({
       ...prev,
-      hp: newOpponentHp,
       qi: newOpponentQi,
       lastAction: aiAction,
-      shieldLevel: newOpponentShield,
     }));
 
     setLogs(prev => [...prev, ...newLogs]);
 
     // Check game over
-    if (newPlayerHp <= 0 && newOpponentHp <= 0) {
-      setLogs(prev => [...prev, { text: '💀 双方同归于尽！平局！', type: 'system' }]);
+    if (playerDied && opponentDied) {
       setWinner('平局');
+      setLoser('双方');
+      setDeathMessage(msg);
       setPhase('gameOver');
-    } else if (newPlayerHp <= 0) {
-      setLogs(prev => [...prev, { text: '💀 你被击败了...', type: 'system' }]);
-      setWinner(opponent.name);
-      setPhase('gameOver');
-    } else if (newOpponentHp <= 0) {
-      setLogs(prev => [...prev, { text: '🎉 你获胜了！', type: 'system' }]);
+      // Add battle record
+      addBattleRecord('平局', '双方', round, msg);
+    } else if (opponentDied) {
       setWinner(player.name);
+      setLoser(opponent.name);
+      setDeathMessage(msg);
       setPhase('gameOver');
+      addBattleRecord(player.name, opponent.name, round, msg);
+    } else if (playerDied) {
+      setWinner(opponent.name);
+      setLoser(player.name);
+      setDeathMessage(msg);
+      setPhase('gameOver');
+      addBattleRecord(opponent.name, player.name, round, msg);
     } else {
-      // Round continues - reset buttons and show next round message
+      // Round continues
       setLogs(prev => [...prev, { text: '📢 已进入下一回合', type: 'system' }]);
       setSelectedAction(null);
       setSelectedLevel(1);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 1500);
+      setRound(prev => prev + 1);
     }
 
-    return newPlayerHp > 0 && newOpponentHp > 0;
-  }, [player, opponent]);
+    return !playerDied && !opponentDied;
+  }, [player, opponent, round]);
+
+  // Add battle record
+  const addBattleRecord = (winnerName: string, loserName: string, rounds: number, lastAction: string) => {
+    const record: BattleRecord = {
+      id: Date.now(),
+      winner: winnerName,
+      loser: loserName,
+      rounds,
+      lastAction,
+      timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+    };
+    setBattleRecords(prev => [record, ...prev].slice(0, 10)); // Keep last 10
+  };
 
   // Handle player action
   const handleAction = (type: ActionType, level: number) => {
@@ -288,49 +302,60 @@ function App() {
     // Random delay 0.3-0.5s
     const delay = 300 + Math.random() * 200;
     setTimeout(() => {
-      const continueGame = resolveRound(playerAction, aiAction);
-      if (continueGame) {
-        setRound(prev => prev + 1);
-      }
+      resolveRound(playerAction, aiAction);
       setIsProcessing(false);
     }, delay);
   };
 
-  // Render HP bar
-  const HpBar = ({ current, max, color }: { current: number; max: number; color: string }) => (
-    <div className="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
-      <div
-        className={`h-full transition-all duration-500 ${color}`}
-        style={{ width: `${(current / max) * 100}%` }}
-      />
-    </div>
-  );
-
   // Start screen
   if (phase === 'start') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center">
-        <div className="text-center p-8">
-          <h1 className="text-6xl font-bold text-white mb-4 animate-pulse">
-            ⚔️ 气功对决
-          </h1>
-          <p className="text-gray-300 text-lg mb-2">回合制战斗游戏</p>
-          <div className="text-gray-400 text-sm mb-8 max-w-md mx-auto text-left bg-gray-800/50 p-4 rounded-lg">
-            <p className="mb-2">📜 <strong>游戏规则：</strong></p>
-            <p className="mb-1">• 每回合选择：防御、攻击或吸气</p>
-            <p className="mb-1">• 吸气：气数+1</p>
-            <p className="mb-1">• 防御：x级防御消耗(x-1)气，抵挡x点伤害</p>
-            <p className="mb-1">• 攻击：y级攻击消耗y气，造成y点伤害</p>
-            <p className="mb-1">• 最高5级，5级只有攻击没有防御</p>
-            <p>• 先将对手HP降为0者获胜</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center p-8">
+            <h1 className="text-6xl font-bold text-white mb-4 animate-pulse">
+              ⚔️ 气功对决
+            </h1>
+            <p className="text-gray-300 text-lg mb-2">回合制战斗游戏</p>
+            <div className="text-gray-400 text-sm mb-8 max-w-md mx-auto text-left bg-gray-800/50 p-4 rounded-lg">
+              <p className="mb-2">📜 <strong>游戏规则：</strong></p>
+              <p className="mb-1">• 每回合选择：防御、攻击或吸气</p>
+              <p className="mb-1">• 吸气：气数+1（但无防御力，相当于0级防御）</p>
+              <p className="mb-1">• 防御：x级防御消耗(x-1)气，抵挡x级及以下攻击</p>
+              <p className="mb-1">• 攻击：y级攻击消耗y气，击破低于y级的防御</p>
+              <p className="mb-1">• 最高5级，5级只有攻击没有防御</p>
+              <p className="mb-1">• 若攻击力 &gt; 防御力，防御方死亡</p>
+              <p>• 吸气时受到任何攻击都会死亡</p>
+            </div>
+            <button
+              onClick={startGame}
+              className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold rounded-xl hover:from-purple-500 hover:to-pink-500 transform hover:scale-105 transition-all shadow-lg shadow-purple-500/30"
+            >
+              开始游戏
+            </button>
           </div>
-          <button
-            onClick={startGame}
-            className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold rounded-xl hover:from-purple-500 hover:to-pink-500 transform hover:scale-105 transition-all shadow-lg shadow-purple-500/30"
-          >
-            开始游戏
-          </button>
         </div>
+
+        {/* Battle Records */}
+        {battleRecords.length > 0 && (
+          <div className="bg-black/40 border-t border-gray-700 p-4">
+            <h3 className="text-yellow-400 font-bold text-center mb-3">📋 对战记录</h3>
+            <div className="max-w-lg mx-auto space-y-2 max-h-48 overflow-y-auto">
+              {battleRecords.map((record) => (
+                <div key={record.id} className="bg-gray-800/60 rounded-lg px-4 py-2 flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-400 font-bold">{record.winner}</span>
+                    <span className="text-gray-500">胜</span>
+                    <span className="text-red-400">{record.loser}</span>
+                  </div>
+                  <div className="text-gray-400 text-xs">
+                    {record.rounds}回合 · {record.timestamp}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -349,39 +374,24 @@ function App() {
     );
   }
 
-  // Game Over screen
+  // Game Over screen - show death message then return to main
   if (phase === 'gameOver') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center">
-        <div className="text-center p-8">
-          <h1 className="text-5xl font-bold text-white mb-4">
-            {winner === player.name ? '🎉 胜利！' : winner === '平局' ? '🤝 平局！' : '💀 失败...'}
-          </h1>
-          <p className="text-gray-300 text-xl mb-2">
-            {winner === player.name
-              ? '恭喜你击败了对手！'
-              : winner === '平局'
-              ? '双方同归于尽！'
-              : '你被对手击败了...'}
-          </p>
-          <p className="text-gray-400 mb-8">共进行了 {round} 回合</p>
-          <div className="mb-8 max-h-48 overflow-y-auto bg-gray-800/50 rounded-lg p-4" ref={logRef}>
-            {logs.map((log, i) => (
-              <p key={i} className={`text-sm ${
-                log.type === 'attack' ? 'text-red-400' :
-                log.type === 'defend' ? 'text-blue-400' :
-                log.type === 'inhale' ? 'text-green-400' :
-                log.type === 'damage' ? 'text-orange-400' :
-                log.type === 'system' ? 'text-yellow-300 font-bold' :
-                'text-gray-300'
-              }`}>{log.text}</p>
-            ))}
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900/30 to-gray-900 flex items-center justify-center">
+        <div className="text-center p-8 animate-fade-in">
+          <div className="text-6xl mb-6">
+            {winner === '平局' ? '💀' : winner === player.name ? '🎉' : '💀'}
           </div>
+          <h1 className="text-4xl font-bold text-white mb-4">
+            {winner === '平局' ? '同归于尽！' : winner === player.name ? '你获胜了！' : '你被击败了！'}
+          </h1>
+          <p className="text-xl text-yellow-300 mb-2">{deathMessage}</p>
+          <p className="text-gray-400 mb-8">共进行了 {round} 回合</p>
           <button
-            onClick={startGame}
+            onClick={() => setPhase('start')}
             className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold rounded-xl hover:from-purple-500 hover:to-pink-500 transform hover:scale-105 transition-all shadow-lg shadow-purple-500/30"
           >
-            再来一局
+            返回主界面
           </button>
         </div>
       </div>
@@ -394,6 +404,15 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex flex-col">
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 animate-bounce">
+          <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold text-xl px-8 py-4 rounded-2xl shadow-2xl shadow-yellow-500/50">
+            📢 已进入下一回合
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="text-center py-3 bg-black/30">
         <h1 className="text-2xl font-bold text-white">⚔️ 气功对决</h1>
@@ -405,23 +424,16 @@ function App() {
         {/* Player */}
         <div className="bg-gray-800/70 rounded-2xl p-5 w-full max-w-xs border border-blue-500/30">
           <div className="text-center mb-3">
-            <span className="text-3xl">🧑</span>
+            <span className="text-4xl">🧑</span>
             <h2 className="text-white font-bold text-lg">{player.name}</h2>
           </div>
           <div className="space-y-2">
             <div>
               <div className="flex justify-between text-sm text-gray-300 mb-1">
-                <span>❤️ HP</span>
-                <span>{player.hp}/{player.maxHp}</span>
-              </div>
-              <HpBar current={player.hp} max={player.maxHp} color="bg-gradient-to-r from-red-600 to-red-400" />
-            </div>
-            <div>
-              <div className="flex justify-between text-sm text-gray-300 mb-1">
                 <span>💨 气数</span>
-                <span>{player.qi}</span>
+                <span className="text-cyan-400 font-bold">{player.qi}</span>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap">
                 {Array.from({ length: Math.min(player.qi, 10) }).map((_, i) => (
                   <div key={i} className="w-4 h-4 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: `${i * 0.1}s` }} />
                 ))}
@@ -429,15 +441,9 @@ function App() {
                 {player.qi > 10 && <span className="text-cyan-400 text-xs">+{player.qi - 10}</span>}
               </div>
             </div>
-            {player.shieldLevel > 0 && (
-              <div className="text-blue-300 text-sm mt-2">
-                🛡️ 防御等级: {player.shieldLevel}
-              </div>
-            )}
             {player.lastAction && (
-              <div className="text-gray-400 text-xs mt-2">
-                上回合: {player.lastAction.type === 'attack' ? '攻击' : player.lastAction.type === 'defend' ? '防御' : '吸气'}
-                {player.lastAction.type !== 'inhale' ? ` Lv.${player.lastAction.level}` : ''}
+              <div className="text-gray-400 text-xs mt-2 bg-gray-900/50 rounded p-2">
+                上回合: {player.lastAction.type === 'attack' ? `⚡攻击 Lv.${player.lastAction.level}` : player.lastAction.type === 'defend' ? `🛡️防御 Lv.${player.lastAction.level}` : '🌬️吸气'}
               </div>
             )}
           </div>
@@ -449,23 +455,16 @@ function App() {
         {/* Opponent */}
         <div className="bg-gray-800/70 rounded-2xl p-5 w-full max-w-xs border border-red-500/30">
           <div className="text-center mb-3">
-            <span className="text-3xl">👹</span>
+            <span className="text-4xl">👹</span>
             <h2 className="text-white font-bold text-lg">{opponent.name}</h2>
           </div>
           <div className="space-y-2">
             <div>
               <div className="flex justify-between text-sm text-gray-300 mb-1">
-                <span>❤️ HP</span>
-                <span>{opponent.hp}/{opponent.maxHp}</span>
-              </div>
-              <HpBar current={opponent.hp} max={opponent.maxHp} color="bg-gradient-to-r from-red-600 to-red-400" />
-            </div>
-            <div>
-              <div className="flex justify-between text-sm text-gray-300 mb-1">
                 <span>💨 气数</span>
-                <span>{opponent.qi}</span>
+                <span className="text-orange-400 font-bold">{opponent.qi}</span>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap">
                 {Array.from({ length: Math.min(opponent.qi, 10) }).map((_, i) => (
                   <div key={i} className="w-4 h-4 bg-orange-400 rounded-full animate-pulse" style={{ animationDelay: `${i * 0.1}s` }} />
                 ))}
@@ -473,29 +472,14 @@ function App() {
                 {opponent.qi > 10 && <span className="text-orange-400 text-xs">+{opponent.qi - 10}</span>}
               </div>
             </div>
-            {opponent.shieldLevel > 0 && (
-              <div className="text-blue-300 text-sm mt-2">
-                🛡️ 防御等级: {opponent.shieldLevel}
-              </div>
-            )}
             {opponent.lastAction && (
-              <div className="text-gray-400 text-xs mt-2">
-                上回合: {opponent.lastAction.type === 'attack' ? '攻击' : opponent.lastAction.type === 'defend' ? '防御' : '吸气'}
-                {opponent.lastAction.type !== 'inhale' ? ` Lv.${opponent.lastAction.level}` : ''}
+              <div className="text-gray-400 text-xs mt-2 bg-gray-900/50 rounded p-2">
+                上回合: {opponent.lastAction.type === 'attack' ? `⚡攻击 Lv.${opponent.lastAction.level}` : opponent.lastAction.type === 'defend' ? `🛡️防御 Lv.${opponent.lastAction.level}` : '🌬️吸气'}
               </div>
             )}
           </div>
         </div>
       </div>
-
-      {/* Toast Notification */}
-      {showToast && (
-        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 animate-bounce">
-          <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold text-xl px-8 py-4 rounded-2xl shadow-2xl shadow-yellow-500/50">
-            📢 已进入下一回合
-          </div>
-        </div>
-      )}
 
       {/* Action Panel */}
       <div className="bg-black/50 border-t border-gray-700 p-4">
@@ -545,7 +529,7 @@ function App() {
                 disabled={isProcessing}
                 className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-xl hover:from-green-500 hover:to-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                🌬️ 吸气（气数+1）
+                🌬️ 吸气（气数+1，无防御）
               </button>
             ) : selectedAction === 'defend' ? (
               defendLevels.map(level => (
@@ -593,7 +577,7 @@ function App() {
               log.type === 'attack' ? 'text-red-400' :
               log.type === 'defend' ? 'text-blue-400' :
               log.type === 'inhale' ? 'text-green-400' :
-              log.type === 'damage' ? 'text-orange-400' :
+              log.type === 'death' ? 'text-purple-300 font-bold' :
               log.type === 'system' ? 'text-yellow-300 font-bold' :
               'text-gray-400'
             }`}>{log.text}</p>
