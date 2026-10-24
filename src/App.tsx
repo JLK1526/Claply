@@ -192,11 +192,19 @@ function App() {
     const aiDefends = getDefenseLevel(aiAction);
 
     if (playerAttacks && aiAttacks) {
-      // Both attack - both die (no defense)
-      playerDied = true;
-      opponentDied = true;
-      newLogs.push({ text: `💀 双方同时攻击，无人防御，同归于尽！`, type: 'death' });
-      msg = '双方同归于尽！';
+      // Both attack - compare levels
+      if (playerAction.level > aiAction.level) {
+        opponentDied = true;
+        newLogs.push({ text: `💀 ${player.name}的${playerAction.level}级攻击压制了${opponent.name}的${aiAction.level}级攻击，${opponent.name}被击杀！`, type: 'death' });
+        msg = `${playerAction.level}级攻击 > ${aiAction.level}级攻击，${opponent.name}被击杀！`;
+      } else if (aiAction.level > playerAction.level) {
+        playerDied = true;
+        newLogs.push({ text: `💀 ${opponent.name}的${aiAction.level}级攻击压制了你的${playerAction.level}级攻击，你被击杀！`, type: 'death' });
+        msg = `${aiAction.level}级攻击 > ${playerAction.level}级攻击，你被击杀！`;
+      } else {
+        // Same level attack - nothing happens, continue
+        newLogs.push({ text: `⚔️ 双方都出了${playerAction.level}级攻击，势均力敌，无事发生！`, type: 'info' });
+      }
     } else if (playerAttacks && !aiAttacks) {
       // Player attacks, AI defends/inhales
       if (playerAction.level > aiDefends) {
@@ -243,14 +251,7 @@ function App() {
     setLogs(prev => [...prev, ...newLogs]);
 
     // Check game over
-    if (playerDied && opponentDied) {
-      setWinner('平局');
-      setLoser('双方');
-      setDeathMessage(msg);
-      setPhase('gameOver');
-      // Add battle record
-      addBattleRecord('平局', '双方', round, msg);
-    } else if (opponentDied) {
+    if (opponentDied) {
       setWinner(player.name);
       setLoser(opponent.name);
       setDeathMessage(msg);
@@ -324,7 +325,8 @@ function App() {
               <p className="mb-1">• 防御：x级防御消耗(x-1)气，抵挡x级及以下攻击</p>
               <p className="mb-1">• 攻击：y级攻击消耗y气，击破低于y级的防御</p>
               <p className="mb-1">• 最高5级，5级只有攻击没有防御</p>
-              <p className="mb-1">• 若攻击力 &gt; 防御力，防御方死亡</p>
+              <p className="mb-1">• 攻击 vs 攻击：等级高者获胜，相同则无事发生</p>
+              <p className="mb-1">• 攻击 vs 防御：攻击等级 &gt; 防御等级，防御方死亡</p>
               <p>• 吸气时受到任何攻击都会死亡</p>
             </div>
             <button
@@ -380,10 +382,10 @@ function App() {
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900/30 to-gray-900 flex items-center justify-center">
         <div className="text-center p-8 animate-fade-in">
           <div className="text-6xl mb-6">
-            {winner === '平局' ? '💀' : winner === player.name ? '🎉' : '💀'}
+            {winner === player.name ? '🎉' : '💀'}
           </div>
           <h1 className="text-4xl font-bold text-white mb-4">
-            {winner === '平局' ? '同归于尽！' : winner === player.name ? '你获胜了！' : '你被击败了！'}
+            {winner === player.name ? '你获胜了！' : '你被击败了！'}
           </h1>
           <p className="text-xl text-yellow-300 mb-2">{deathMessage}</p>
           <p className="text-gray-400 mb-8">共进行了 {round} 回合</p>
