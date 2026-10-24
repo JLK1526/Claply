@@ -47,6 +47,7 @@ function App() {
   const [selectedLevel, setSelectedLevel] = useState<number>(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll log
@@ -261,6 +262,13 @@ function App() {
       setLogs(prev => [...prev, { text: '🎉 你获胜了！', type: 'system' }]);
       setWinner(player.name);
       setPhase('gameOver');
+    } else {
+      // Round continues - reset buttons and show next round message
+      setLogs(prev => [...prev, { text: '📢 已进入下一回合', type: 'system' }]);
+      setSelectedAction(null);
+      setSelectedLevel(1);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 1500);
     }
 
     return newPlayerHp > 0 && newOpponentHp > 0;
@@ -479,6 +487,15 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 animate-bounce">
+          <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold text-xl px-8 py-4 rounded-2xl shadow-2xl shadow-yellow-500/50">
+            📢 已进入下一回合
+          </div>
+        </div>
+      )}
 
       {/* Action Panel */}
       <div className="bg-black/50 border-t border-gray-700 p-4">
