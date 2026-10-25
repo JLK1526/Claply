@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 type GamePhase = 'start' | 'countdown' | 'playing' | 'roundResult' | 'gameOver';
 type ActionType = 'defend' | 'attack' | 'inhale';
+type ThemeMode = 'dark' | 'light';
 
 interface Action {
   type: ActionType;
@@ -28,7 +29,83 @@ interface BattleRecord {
   timestamp: string;
 }
 
+interface Theme {
+  // Page backgrounds
+  pageBg: string;
+  pageBgGameover: string;
+  // Card backgrounds
+  cardBg: string;
+  cardBgAlt: string;
+  // Text colors
+  textPrimary: string;
+  textSecondary: string;
+  textMuted: string;
+  // Borders
+  border: string;
+  borderPlayer: string;
+  borderOpponent: string;
+  // Buttons
+  btnBg: string;
+  btnHover: string;
+  btnActiveBg: string;
+  // Log area
+  logBg: string;
+  // Header
+  headerBg: string;
+  // Action panel
+  actionBg: string;
+  // Records
+  recordBg: string;
+  // Inner card bg
+  innerCardBg: string;
+}
+
+const darkTheme: Theme = {
+  pageBg: 'bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900',
+  pageBgGameover: 'bg-gradient-to-br from-gray-900 via-red-900/30 to-gray-900',
+  cardBg: 'bg-gray-800/70',
+  cardBgAlt: 'bg-gray-800/60',
+  textPrimary: 'text-white',
+  textSecondary: 'text-gray-300',
+  textMuted: 'text-gray-400',
+  border: 'border-gray-700',
+  borderPlayer: 'border-blue-500/30',
+  borderOpponent: 'border-red-500/30',
+  btnBg: 'bg-gray-700',
+  btnHover: 'hover:bg-gray-600',
+  btnActiveBg: 'bg-gray-600',
+  logBg: 'bg-black/60',
+  headerBg: 'bg-black/30',
+  actionBg: 'bg-black/50',
+  recordBg: 'bg-gray-800/60',
+  innerCardBg: 'bg-gray-900/50',
+};
+
+const lightTheme: Theme = {
+  pageBg: 'bg-gradient-to-br from-blue-50 via-purple-100 to-pink-50',
+  pageBgGameover: 'bg-gradient-to-br from-blue-50 via-red-100 to-pink-50',
+  cardBg: 'bg-white/80',
+  cardBgAlt: 'bg-white/70',
+  textPrimary: 'text-gray-900',
+  textSecondary: 'text-gray-700',
+  textMuted: 'text-gray-500',
+  border: 'border-gray-300',
+  borderPlayer: 'border-blue-400/50',
+  borderOpponent: 'border-red-400/50',
+  btnBg: 'bg-gray-200',
+  btnHover: 'hover:bg-gray-300',
+  btnActiveBg: 'bg-gray-300',
+  logBg: 'bg-white/70',
+  headerBg: 'bg-white/50',
+  actionBg: 'bg-white/60',
+  recordBg: 'bg-white/70',
+  innerCardBg: 'bg-gray-100/80',
+};
+
 function App() {
+  const [themeMode, setThemeMode] = useState<ThemeMode>('dark');
+  const theme: Theme = themeMode === 'dark' ? darkTheme : lightTheme;
+
   const [phase, setPhase] = useState<GamePhase>('start');
   const [countdown, setCountdown] = useState(3);
   const [round, setRound] = useState(1);
@@ -94,14 +171,14 @@ function App() {
   // Calculate qi cost for action
   const getQiCost = (type: ActionType, level: number): number => {
     if (type === 'inhale') return 0;
-    if (type === 'defend') return level - 1; // Level 1 = 0, Level 2 = 1, etc.
-    if (type === 'attack') return level; // Level 1 = 1, Level 2 = 2, etc.
+    if (type === 'defend') return level - 1;
+    if (type === 'attack') return level;
     return 0;
   };
 
   // Check if action is valid
   const isValidAction = (type: ActionType, level: number, qi: number): boolean => {
-    if (type === 'defend' && level === 5) return false; // No level 5 defense
+    if (type === 'defend' && level === 5) return false;
     return qi >= getQiCost(type, level);
   };
 
@@ -126,7 +203,6 @@ function App() {
     }
 
     if (rand < 0.4) {
-      // Attack - prefer higher levels when possible
       const availableLevels = getAvailableLevels('attack', ai.qi);
       if (availableLevels.length > 0) {
         const levelIdx = Math.min(
@@ -136,7 +212,6 @@ function App() {
         return { type: 'attack', level: availableLevels[levelIdx] };
       }
     } else if (rand < 0.65) {
-      // Defend
       const availableLevels = getAvailableLevels('defend', ai.qi);
       if (availableLevels.length > 0) {
         const levelIdx = Math.floor(Math.random() * availableLevels.length);
@@ -147,10 +222,10 @@ function App() {
     return { type: 'inhale', level: 1 };
   };
 
-  // Get defense level for an action (inhale = 0, defend = level, attack = 0)
+  // Get defense level for an action
   const getDefenseLevel = (action: Action): number => {
     if (action.type === 'defend') return action.level;
-    return 0; // inhale or attack = no defense
+    return 0;
   };
 
   // Resolve round
@@ -162,7 +237,6 @@ function App() {
     let opponentDied = false;
     let msg = '';
 
-    // Process qi costs first
     if (playerAction.type === 'inhale') {
       newPlayerQi += 1;
     } else {
@@ -175,7 +249,6 @@ function App() {
       newOpponentQi -= getQiCost(aiAction.type, aiAction.level);
     }
 
-    // Log actions
     const actionText = (who: string, action: Action) => {
       if (action.type === 'inhale') return `🌬️ ${who}吸了一口气！（气数+1）`;
       if (action.type === 'defend') return `🛡️ ${who}展开${action.level}级防御！`;
@@ -185,14 +258,12 @@ function App() {
     newLogs.push({ text: actionText(player.name, playerAction), type: playerAction.type === 'attack' ? 'attack' : playerAction.type === 'defend' ? 'defend' : 'inhale' });
     newLogs.push({ text: actionText(opponent.name, aiAction), type: aiAction.type === 'attack' ? 'attack' : aiAction.type === 'defend' ? 'defend' : 'inhale' });
 
-    // Resolve combat
     const playerAttacks = playerAction.type === 'attack';
     const aiAttacks = aiAction.type === 'attack';
     const playerDefends = getDefenseLevel(playerAction);
     const aiDefends = getDefenseLevel(aiAction);
 
     if (playerAttacks && aiAttacks) {
-      // Both attack - compare levels
       if (playerAction.level > aiAction.level) {
         opponentDied = true;
         newLogs.push({ text: `💀 ${player.name}的${playerAction.level}级攻击压制了${opponent.name}的${aiAction.level}级攻击，${opponent.name}被击杀！`, type: 'death' });
@@ -202,11 +273,9 @@ function App() {
         newLogs.push({ text: `💀 ${opponent.name}的${aiAction.level}级攻击压制了你的${playerAction.level}级攻击，你被击杀！`, type: 'death' });
         msg = `${aiAction.level}级攻击 > ${playerAction.level}级攻击，你被击杀！`;
       } else {
-        // Same level attack - nothing happens, continue
         newLogs.push({ text: `⚔️ 双方都出了${playerAction.level}级攻击，势均力敌，无事发生！`, type: 'info' });
       }
     } else if (playerAttacks && !aiAttacks) {
-      // Player attacks, AI defends/inhales
       if (playerAction.level > aiDefends) {
         opponentDied = true;
         if (aiAction.type === 'inhale') {
@@ -220,7 +289,6 @@ function App() {
         newLogs.push({ text: `✅ ${opponent.name}的${aiDefends}级防御成功抵挡了${playerAction.level}级攻击！`, type: 'defend' });
       }
     } else if (!playerAttacks && aiAttacks) {
-      // AI attacks, player defends/inhales
       if (aiAction.level > playerDefends) {
         playerDied = true;
         if (playerAction.type === 'inhale') {
@@ -234,9 +302,7 @@ function App() {
         newLogs.push({ text: `✅ 你的${playerDefends}级防御成功抵挡了${aiAction.level}级攻击！`, type: 'defend' });
       }
     }
-    // If neither attacks, nothing happens - both survive
 
-    // Update states
     setPlayer(prev => ({
       ...prev,
       qi: newPlayerQi,
@@ -250,7 +316,6 @@ function App() {
 
     setLogs(prev => [...prev, ...newLogs]);
 
-    // Check game over
     if (opponentDied) {
       setWinner(player.name);
       setLoser(opponent.name);
@@ -264,7 +329,6 @@ function App() {
       setPhase('gameOver');
       addBattleRecord(opponent.name, player.name, round, msg);
     } else {
-      // Round continues
       setLogs(prev => [...prev, { text: '📢 已进入下一回合', type: 'system' }]);
       setSelectedAction(null);
       setSelectedLevel(1);
@@ -276,7 +340,6 @@ function App() {
     return !playerDied && !opponentDied;
   }, [player, opponent, round]);
 
-  // Add battle record
   const addBattleRecord = (winnerName: string, loserName: string, rounds: number, lastAction: string) => {
     const record: BattleRecord = {
       id: Date.now(),
@@ -286,10 +349,9 @@ function App() {
       lastAction,
       timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
     };
-    setBattleRecords(prev => [record, ...prev].slice(0, 10)); // Keep last 10
+    setBattleRecords(prev => [record, ...prev].slice(0, 10));
   };
 
-  // Handle player action
   const handleAction = (type: ActionType, level: number) => {
     if (isProcessing || phase !== 'playing') return;
     if (!isValidAction(type, level, player.qi)) return;
@@ -300,7 +362,6 @@ function App() {
 
     addLog(`--- 第${round}回合 ---`, 'system');
 
-    // Random delay 0.3-0.5s
     const delay = 300 + Math.random() * 200;
     setTimeout(() => {
       resolveRound(playerAction, aiAction);
@@ -308,17 +369,35 @@ function App() {
     }, delay);
   };
 
+  // Theme toggle button component
+  const ThemeToggle = () => (
+    <button
+      onClick={() => setThemeMode(prev => prev === 'dark' ? 'light' : 'dark')}
+      className={`fixed top-4 right-4 z-50 w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-lg ${
+        themeMode === 'dark'
+          ? 'bg-yellow-400 hover:bg-yellow-300 text-gray-900'
+          : 'bg-indigo-900 hover:bg-indigo-800 text-yellow-200'
+      } transform hover:scale-110 active:scale-95`}
+      title={themeMode === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
+    >
+      <span className="text-2xl">
+        {themeMode === 'dark' ? '☀️' : '🌙'}
+      </span>
+    </button>
+  );
+
   // Start screen
   if (phase === 'start') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex flex-col">
+      <div className={`min-h-screen ${theme.pageBg} flex flex-col transition-colors duration-500`}>
+        <ThemeToggle />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center p-8">
-            <h1 className="text-6xl font-bold text-white mb-4 animate-pulse">
+            <h1 className={`text-6xl font-bold ${theme.textPrimary} mb-4 animate-pulse`}>
               ⚔️ 气功对决
             </h1>
-            <p className="text-gray-300 text-lg mb-2">回合制战斗游戏</p>
-            <div className="text-gray-400 text-sm mb-8 max-w-md mx-auto text-left bg-gray-800/50 p-4 rounded-lg">
+            <p className={`${theme.textSecondary} text-lg mb-2`}>回合制战斗游戏</p>
+            <div className={`${theme.textMuted} text-sm mb-8 max-w-md mx-auto text-left ${theme.cardBg} backdrop-blur-sm p-4 rounded-lg border ${theme.border}`}>
               <p className="mb-2">📜 <strong>游戏规则：</strong></p>
               <p className="mb-1">• 每回合选择：防御、攻击或吸气</p>
               <p className="mb-1">• 吸气：气数+1（但无防御力，相当于0级防御）</p>
@@ -340,17 +419,17 @@ function App() {
 
         {/* Battle Records */}
         {battleRecords.length > 0 && (
-          <div className="bg-black/40 border-t border-gray-700 p-4">
-            <h3 className="text-yellow-400 font-bold text-center mb-3">📋 对战记录</h3>
+          <div className={`${theme.actionBg} backdrop-blur-sm border-t ${theme.border} p-4`}>
+            <h3 className="text-yellow-500 font-bold text-center mb-3">📋 对战记录</h3>
             <div className="max-w-lg mx-auto space-y-2 max-h-48 overflow-y-auto">
               {battleRecords.map((record) => (
-                <div key={record.id} className="bg-gray-800/60 rounded-lg px-4 py-2 flex items-center justify-between text-sm">
+                <div key={record.id} className={`${theme.recordBg} backdrop-blur-sm rounded-lg px-4 py-2 flex items-center justify-between text-sm border ${theme.border}`}>
                   <div className="flex items-center gap-2">
-                    <span className="text-green-400 font-bold">{record.winner}</span>
-                    <span className="text-gray-500">胜</span>
-                    <span className="text-red-400">{record.loser}</span>
+                    <span className="text-green-500 font-bold">{record.winner}</span>
+                    <span className={theme.textMuted}>胜</span>
+                    <span className="text-red-500">{record.loser}</span>
                   </div>
-                  <div className="text-gray-400 text-xs">
+                  <div className={`${theme.textMuted} text-xs`}>
                     {record.rounds}回合 · {record.timestamp}
                   </div>
                 </div>
@@ -365,10 +444,11 @@ function App() {
   // Countdown screen
   if (phase === 'countdown') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center">
+      <div className={`min-h-screen ${theme.pageBg} flex items-center justify-center transition-colors duration-500`}>
+        <ThemeToggle />
         <div className="text-center">
-          <p className="text-gray-300 text-2xl mb-4">准备战斗...</p>
-          <div className="text-9xl font-bold text-white animate-bounce">
+          <p className={`${theme.textSecondary} text-2xl mb-4`}>准备战斗...</p>
+          <div className={`text-9xl font-bold ${theme.textPrimary} animate-bounce`}>
             {countdown}
           </div>
         </div>
@@ -376,19 +456,20 @@ function App() {
     );
   }
 
-  // Game Over screen - show death message then return to main
+  // Game Over screen
   if (phase === 'gameOver') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900/30 to-gray-900 flex items-center justify-center">
-        <div className="text-center p-8 animate-fade-in">
+      <div className={`min-h-screen ${theme.pageBgGameover} flex items-center justify-center transition-colors duration-500`}>
+        <ThemeToggle />
+        <div className="text-center p-8">
           <div className="text-6xl mb-6">
             {winner === player.name ? '🎉' : '💀'}
           </div>
-          <h1 className="text-4xl font-bold text-white mb-4">
+          <h1 className={`text-4xl font-bold ${theme.textPrimary} mb-4`}>
             {winner === player.name ? '你获胜了！' : '你被击败了！'}
           </h1>
-          <p className="text-xl text-yellow-300 mb-2">{deathMessage}</p>
-          <p className="text-gray-400 mb-8">共进行了 {round} 回合</p>
+          <p className="text-xl text-yellow-500 mb-2">{deathMessage}</p>
+          <p className={`${theme.textMuted} mb-8`}>共进行了 {round} 回合</p>
           <button
             onClick={() => setPhase('start')}
             className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold rounded-xl hover:from-purple-500 hover:to-pink-500 transform hover:scale-105 transition-all shadow-lg shadow-purple-500/30"
@@ -405,10 +486,12 @@ function App() {
   const attackLevels = getAvailableLevels('attack', player.qi);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex flex-col">
+    <div className={`min-h-screen ${theme.pageBg} flex flex-col transition-colors duration-500`}>
+      <ThemeToggle />
+
       {/* Toast Notification */}
       {showToast && (
-        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 animate-bounce">
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 animate-bounce">
           <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold text-xl px-8 py-4 rounded-2xl shadow-2xl shadow-yellow-500/50">
             📢 已进入下一回合
           </div>
@@ -416,35 +499,35 @@ function App() {
       )}
 
       {/* Header */}
-      <div className="text-center py-3 bg-black/30">
-        <h1 className="text-2xl font-bold text-white">⚔️ 气功对决</h1>
-        <p className="text-gray-400 text-sm">第 {round} 回合</p>
+      <div className={`text-center py-3 ${theme.headerBg} backdrop-blur-sm`}>
+        <h1 className={`text-2xl font-bold ${theme.textPrimary}`}>⚔️ 气功对决</h1>
+        <p className={`${theme.textMuted} text-sm`}>第 {round} 回合</p>
       </div>
 
       {/* Battle Area */}
       <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-4 p-4">
         {/* Player */}
-        <div className="bg-gray-800/70 rounded-2xl p-5 w-full max-w-xs border border-blue-500/30">
+        <div className={`${theme.cardBg} backdrop-blur-sm rounded-2xl p-5 w-full max-w-xs border ${theme.borderPlayer}`}>
           <div className="text-center mb-3">
             <span className="text-4xl">🧑</span>
-            <h2 className="text-white font-bold text-lg">{player.name}</h2>
+            <h2 className={`${theme.textPrimary} font-bold text-lg`}>{player.name}</h2>
           </div>
           <div className="space-y-2">
             <div>
-              <div className="flex justify-between text-sm text-gray-300 mb-1">
+              <div className={`flex justify-between text-sm ${theme.textSecondary} mb-1`}>
                 <span>💨 气数</span>
-                <span className="text-cyan-400 font-bold">{player.qi}</span>
+                <span className="text-cyan-500 font-bold">{player.qi}</span>
               </div>
               <div className="flex gap-1 flex-wrap">
                 {Array.from({ length: Math.min(player.qi, 10) }).map((_, i) => (
                   <div key={i} className="w-4 h-4 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: `${i * 0.1}s` }} />
                 ))}
-                {player.qi === 0 && <span className="text-gray-500 text-xs">无气</span>}
-                {player.qi > 10 && <span className="text-cyan-400 text-xs">+{player.qi - 10}</span>}
+                {player.qi === 0 && <span className={theme.textMuted + ' text-xs'}>无气</span>}
+                {player.qi > 10 && <span className="text-cyan-500 text-xs">+{player.qi - 10}</span>}
               </div>
             </div>
             {player.lastAction && (
-              <div className="text-gray-400 text-xs mt-2 bg-gray-900/50 rounded p-2">
+              <div className={`${theme.textMuted} text-xs mt-2 ${theme.innerCardBg} rounded p-2`}>
                 上回合: {player.lastAction.type === 'attack' ? `⚡攻击 Lv.${player.lastAction.level}` : player.lastAction.type === 'defend' ? `🛡️防御 Lv.${player.lastAction.level}` : '🌬️吸气'}
               </div>
             )}
@@ -455,27 +538,27 @@ function App() {
         <div className="text-4xl font-bold text-yellow-400 animate-pulse">VS</div>
 
         {/* Opponent */}
-        <div className="bg-gray-800/70 rounded-2xl p-5 w-full max-w-xs border border-red-500/30">
+        <div className={`${theme.cardBg} backdrop-blur-sm rounded-2xl p-5 w-full max-w-xs border ${theme.borderOpponent}`}>
           <div className="text-center mb-3">
             <span className="text-4xl">👹</span>
-            <h2 className="text-white font-bold text-lg">{opponent.name}</h2>
+            <h2 className={`${theme.textPrimary} font-bold text-lg`}>{opponent.name}</h2>
           </div>
           <div className="space-y-2">
             <div>
-              <div className="flex justify-between text-sm text-gray-300 mb-1">
+              <div className={`flex justify-between text-sm ${theme.textSecondary} mb-1`}>
                 <span>💨 气数</span>
-                <span className="text-orange-400 font-bold">{opponent.qi}</span>
+                <span className="text-orange-500 font-bold">{opponent.qi}</span>
               </div>
               <div className="flex gap-1 flex-wrap">
                 {Array.from({ length: Math.min(opponent.qi, 10) }).map((_, i) => (
                   <div key={i} className="w-4 h-4 bg-orange-400 rounded-full animate-pulse" style={{ animationDelay: `${i * 0.1}s` }} />
                 ))}
-                {opponent.qi === 0 && <span className="text-gray-500 text-xs">无气</span>}
-                {opponent.qi > 10 && <span className="text-orange-400 text-xs">+{opponent.qi - 10}</span>}
+                {opponent.qi === 0 && <span className={theme.textMuted + ' text-xs'}>无气</span>}
+                {opponent.qi > 10 && <span className="text-orange-500 text-xs">+{opponent.qi - 10}</span>}
               </div>
             </div>
             {opponent.lastAction && (
-              <div className="text-gray-400 text-xs mt-2 bg-gray-900/50 rounded p-2">
+              <div className={`${theme.textMuted} text-xs mt-2 ${theme.innerCardBg} rounded p-2`}>
                 上回合: {opponent.lastAction.type === 'attack' ? `⚡攻击 Lv.${opponent.lastAction.level}` : opponent.lastAction.type === 'defend' ? `🛡️防御 Lv.${opponent.lastAction.level}` : '🌬️吸气'}
               </div>
             )}
@@ -484,7 +567,7 @@ function App() {
       </div>
 
       {/* Action Panel */}
-      <div className="bg-black/50 border-t border-gray-700 p-4">
+      <div className={`${theme.actionBg} backdrop-blur-sm border-t ${theme.border} p-4`}>
         {/* Action type selection */}
         <div className="flex justify-center gap-3 mb-3">
           <button
@@ -493,7 +576,7 @@ function App() {
             className={`px-4 py-2 rounded-lg font-bold transition-all ${
               selectedAction === 'defend'
                 ? 'bg-blue-600 text-white scale-105'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                : `${theme.btnBg} ${theme.textSecondary} ${theme.btnHover}`
             } disabled:opacity-50`}
           >
             🛡️ 防御
@@ -504,7 +587,7 @@ function App() {
             className={`px-4 py-2 rounded-lg font-bold transition-all ${
               selectedAction === 'attack'
                 ? 'bg-red-600 text-white scale-105'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                : `${theme.btnBg} ${theme.textSecondary} ${theme.btnHover}`
             } disabled:opacity-50`}
           >
             ⚡ 攻击
@@ -515,7 +598,7 @@ function App() {
             className={`px-4 py-2 rounded-lg font-bold transition-all ${
               selectedAction === 'inhale'
                 ? 'bg-green-600 text-white scale-105'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                : `${theme.btnBg} ${theme.textSecondary} ${theme.btnHover}`
             } disabled:opacity-50`}
           >
             🌬️ 吸气
@@ -562,26 +645,26 @@ function App() {
         )}
 
         {isProcessing && (
-          <div className="text-center text-yellow-400 animate-pulse">
+          <div className="text-center text-yellow-500 animate-pulse">
             ⏳ 对手思考中...
           </div>
         )}
       </div>
 
       {/* Battle Log */}
-      <div className="bg-black/60 border-t border-gray-700 p-3 max-h-40 overflow-y-auto" ref={logRef}>
+      <div className={`${theme.logBg} backdrop-blur-sm border-t ${theme.border} p-3 max-h-40 overflow-y-auto`} ref={logRef}>
         <div className="space-y-1">
           {logs.length === 0 && (
-            <p className="text-gray-500 text-sm text-center">战斗日志将在此显示...</p>
+            <p className={`${theme.textMuted} text-sm text-center`}>战斗日志将在此显示...</p>
           )}
           {logs.map((log, i) => (
             <p key={i} className={`text-sm ${
-              log.type === 'attack' ? 'text-red-400' :
-              log.type === 'defend' ? 'text-blue-400' :
-              log.type === 'inhale' ? 'text-green-400' :
-              log.type === 'death' ? 'text-purple-300 font-bold' :
-              log.type === 'system' ? 'text-yellow-300 font-bold' :
-              'text-gray-400'
+              log.type === 'attack' ? 'text-red-500' :
+              log.type === 'defend' ? 'text-blue-500' :
+              log.type === 'inhale' ? 'text-green-500' :
+              log.type === 'death' ? 'text-purple-500 font-bold' :
+              log.type === 'system' ? 'text-yellow-500 font-bold' :
+              theme.textMuted
             }`}>{log.text}</p>
           ))}
         </div>
