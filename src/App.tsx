@@ -373,11 +373,11 @@ function App() {
   const ThemeToggle = () => (
     <button
       onClick={() => setThemeMode(prev => prev === 'dark' ? 'light' : 'dark')}
-      className={`fixed top-4 right-4 z-50 w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-lg ${
+      className={`fixed top-4 right-4 z-50 w-12 h-12 rounded-lg flex items-center justify-center transition-all transform hover:scale-110 active:scale-95 bg-transparent border-2 ${
         themeMode === 'dark'
-          ? 'bg-yellow-400 hover:bg-yellow-300 text-gray-900'
-          : 'bg-indigo-900 hover:bg-indigo-800 text-yellow-200'
-      } transform hover:scale-110 active:scale-95`}
+          ? 'border-yellow-400 hover:border-yellow-300'
+          : 'border-indigo-700 hover:border-indigo-900'
+      }`}
       title={themeMode === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
     >
       <span className="text-2xl">
