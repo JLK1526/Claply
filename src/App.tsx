@@ -489,9 +489,9 @@ function App() {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center p-8">
             <h1 className={`text-6xl font-bold ${theme.textPrimary} mb-4 animate-pulse`}>
-              ⚔️ 气功对决
+              ⚔️ 拍手模拟器
             </h1>
-            <p className={`${theme.textSecondary} text-lg mb-2`}>回合制战斗游戏</p>
+            <p className={`${theme.textSecondary} text-lg mb-2`}>回合制战斗游戏三鑫特色</p>
             
             {/* Difficulty Selection */}
             <div className="mb-6">
@@ -638,7 +638,7 @@ function App() {
 
       {/* Header */}
       <div className={`text-center py-3 ${theme.headerBg} backdrop-blur-sm`}>
-        <h1 className={`text-2xl font-bold ${theme.textPrimary}`}>⚔️ 气功对决</h1>
+        <h1 className={`text-2xl font-bold ${theme.textPrimary}`}>⚔️ 拍手模拟器</h1>
         <p className={`${theme.textMuted} text-sm`}>第 {round} 回合</p>
       </div>
 
