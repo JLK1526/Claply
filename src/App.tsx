@@ -491,7 +491,7 @@ function App() {
             <h1 className={`text-6xl font-bold ${theme.textPrimary} mb-4 animate-pulse`}>
               ⚔️ 拍手模拟器
             </h1>
-            <p className={`${theme.textSecondary} text-lg mb-2`}>回合制战斗游戏三鑫特色</p>
+            <p className={`${theme.textSecondary} text-lg mb-2`}>回合制战斗游戏 三鑫特色</p>
             
             {/* Difficulty Selection */}
             <div className="mb-6">
