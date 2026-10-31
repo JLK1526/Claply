@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-type GamePhase = 'start' | 'countdown' | 'playing' | 'waitingForAI' | 'gameOver';
+type GamePhase = 'start' | 'playing' | 'waitingForAI' | 'gameOver';
 type ActionType = 'defend' | 'attack' | 'inhale';
 type ThemeMode = 'dark' | 'light';
 type Difficulty = 'easy' | 'medium' | 'hard';
@@ -108,7 +108,6 @@ function App() {
   const theme: Theme = themeMode === 'dark' ? darkTheme : lightTheme;
 
   const [phase, setPhase] = useState<GamePhase>('start');
-  const [countdown, setCountdown] = useState(3);
   const [round, setRound] = useState(1);
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [showQiInsufficient, setShowQiInsufficient] = useState(false);
@@ -140,26 +139,14 @@ function App() {
     }
   }, [logs]);
 
-  // Countdown effect
-  useEffect(() => {
-    if (phase === 'countdown' && countdown > 0) {
-      const timer = setTimeout(() => {
-        setCountdown(countdown - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else if (phase === 'countdown' && countdown === 0) {
-      setPhase('playing');
-      addLog('⚔️ 战斗开始！', 'system');
-    }
-  }, [phase, countdown]);
+
 
   const addLog = (text: string, type: LogEntry['type'] = 'info') => {
     setLogs(prev => [...prev, { text, type }]);
   };
 
   const startGame = () => {
-    setPhase('countdown');
-    setCountdown(3);
+    setPhase('playing');
     setRound(1);
     setPlayer({ name: '玩家', qi: 0, lastAction: null });
     setOpponent({ name: '对手', qi: 0, lastAction: null });
@@ -169,6 +156,7 @@ function App() {
     setDeathMessage('');
     setSelectedAction(null);
     setSelectedLevel(1);
+    addLog('⚔️ 战斗开始！', 'system');
   };
 
   // Calculate qi cost for action
@@ -603,20 +591,7 @@ function App() {
     );
   }
 
-  // Countdown screen
-  if (phase === 'countdown') {
-    return (
-      <div className={`min-h-screen ${theme.pageBg} flex items-center justify-center transition-colors duration-500`}>
-        <ThemeToggle />
-        <div className="text-center">
-          <p className={`${theme.textSecondary} text-2xl mb-4`}>准备战斗...</p>
-          <div className={`text-9xl font-bold ${theme.textPrimary} animate-bounce`}>
-            {countdown}
-          </div>
-        </div>
-      </div>
-    );
-  }
+
 
   // Game Over screen
   if (phase === 'gameOver') {
