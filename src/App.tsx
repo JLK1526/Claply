@@ -197,76 +197,91 @@ function App() {
     return levels;
   };
 
-  // AI opponent decision based on difficulty
+  // AI opponent decision based on difficulty - much stronger AI
   const getAIAction = (ai: Player): Action => {
     const rand = Math.random();
-
-    // Difficulty-based probabilities
-    // Easy: AI is weak (player wins more often)
-    // Medium: balanced
-    // Hard: AI is strong (player wins less often)
-    
-    let attackProb: number;
-    let defendProb: number;
-    let inhaleProb: number;
-    let preferHighLevel: boolean;
-
-    switch (difficulty) {
-      case 'easy':
-        attackProb = 0.25;
-        defendProb = 0.35;
-        inhaleProb = 0.40;
-        preferHighLevel = false;
-        break;
-      case 'medium':
-        attackProb = 0.40;
-        defendProb = 0.30;
-        inhaleProb = 0.30;
-        preferHighLevel = false;
-        break;
-      case 'hard':
-        attackProb = 0.55;
-        defendProb = 0.25;
-        inhaleProb = 0.20;
-        preferHighLevel = true;
-        break;
-    }
 
     // If no qi, must inhale
     if (ai.qi === 0) {
       return { type: 'inhale', level: 1 };
     }
 
-    // Low qi and easy difficulty: more likely to inhale
-    if (ai.qi <= 1 && rand < inhaleProb) {
-      return { type: 'inhale', level: 1 };
-    }
+    // Difficulty-based strategy
+    switch (difficulty) {
+      case 'easy':
+        // Easy: AI is still decent but makes more mistakes
+        if (ai.qi >= 3 && rand < 0.6) {
+          // Attack with high level
+          const availableLevels = getAvailableLevels('attack', ai.qi);
+          if (availableLevels.length > 0) {
+            const levelIdx = Math.min(availableLevels.length - 1, Math.floor(availableLevels.length * 0.6));
+            return { type: 'attack', level: availableLevels[levelIdx] };
+          }
+        } else if (ai.qi >= 2 && rand < 0.8) {
+          // Defend
+          const availableLevels = getAvailableLevels('defend', ai.qi);
+          if (availableLevels.length > 0) {
+            const levelIdx = Math.floor(availableLevels.length * 0.5);
+            return { type: 'defend', level: availableLevels[levelIdx] };
+          }
+        }
+        return { type: 'inhale', level: 1 };
 
-    if (rand < attackProb) {
-      const availableLevels = getAvailableLevels('attack', ai.qi);
-      if (availableLevels.length > 0) {
-        let levelIdx: number;
-        if (preferHighLevel) {
-          // Hard: prefer highest levels
-          levelIdx = availableLevels.length - 1;
-        } else {
-          // Easy/Medium: random or slightly prefer lower
-          levelIdx = Math.floor(Math.random() * availableLevels.length);
+      case 'medium':
+        // Medium: AI is smart and aggressive
+        if (ai.qi >= 4 && rand < 0.7) {
+          // High level attack
+          const availableLevels = getAvailableLevels('attack', ai.qi);
+          if (availableLevels.length > 0) {
+            const levelIdx = Math.min(availableLevels.length - 1, Math.floor(availableLevels.length * 0.8));
+            return { type: 'attack', level: availableLevels[levelIdx] };
+          }
+        } else if (ai.qi >= 2 && rand < 0.85) {
+          // Defend or attack
+          if (rand < 0.5) {
+            const availableLevels = getAvailableLevels('defend', ai.qi);
+            if (availableLevels.length > 0) {
+              const levelIdx = Math.floor(availableLevels.length * 0.7);
+              return { type: 'defend', level: availableLevels[levelIdx] };
+            }
+          } else {
+            const availableLevels = getAvailableLevels('attack', ai.qi);
+            if (availableLevels.length > 0) {
+              const levelIdx = Math.min(availableLevels.length - 1, Math.floor(availableLevels.length * 0.7));
+              return { type: 'attack', level: availableLevels[levelIdx] };
+            }
+          }
         }
-        return { type: 'attack', level: availableLevels[levelIdx] };
-      }
-    } else if (rand < attackProb + defendProb) {
-      const availableLevels = getAvailableLevels('defend', ai.qi);
-      if (availableLevels.length > 0) {
-        let levelIdx: number;
-        if (preferHighLevel) {
-          // Hard: prefer higher defense
-          levelIdx = Math.min(availableLevels.length - 1, Math.floor(availableLevels.length * 0.7));
-        } else {
-          levelIdx = Math.floor(Math.random() * availableLevels.length);
+        return { type: 'inhale', level: 1 };
+
+      case 'hard':
+        // Hard: AI is very aggressive and strategic
+        if (ai.qi >= 5) {
+          // Always use highest attack
+          const availableLevels = getAvailableLevels('attack', ai.qi);
+          if (availableLevels.length > 0) {
+            return { type: 'attack', level: availableLevels[availableLevels.length - 1] };
+          }
+        } else if (ai.qi >= 3 && rand < 0.85) {
+          // High level attack
+          const availableLevels = getAvailableLevels('attack', ai.qi);
+          if (availableLevels.length > 0) {
+            return { type: 'attack', level: availableLevels[availableLevels.length - 1] };
+          }
+        } else if (ai.qi >= 2 && rand < 0.9) {
+          // Defend with high level
+          const availableLevels = getAvailableLevels('defend', ai.qi);
+          if (availableLevels.length > 0) {
+            return { type: 'defend', level: availableLevels[availableLevels.length - 1] };
+          }
+        } else if (ai.qi >= 1) {
+          // Attack with available level
+          const availableLevels = getAvailableLevels('attack', ai.qi);
+          if (availableLevels.length > 0) {
+            return { type: 'attack', level: availableLevels[availableLevels.length - 1] };
+          }
         }
-        return { type: 'defend', level: availableLevels[levelIdx] };
-      }
+        return { type: 'inhale', level: 1 };
     }
 
     return { type: 'inhale', level: 1 };
@@ -429,8 +444,8 @@ function App() {
     // Set phase to waiting for AI
     setPhase('waitingForAI');
 
-    // AI decides after 0.5-0.8 seconds
-    const delay = 500 + Math.random() * 300;
+    // AI decides quickly after 0.05-0.1 seconds
+    const delay = 50 + Math.random() * 50;
     setTimeout(() => {
       const aiAction = getAIAction(opponent);
       resolveRound(playerAction, aiAction);
@@ -514,9 +529,9 @@ function App() {
                 </button>
               </div>
               <p className={`${theme.textMuted} text-xs mt-2`}>
-                {difficulty === 'easy' && '玩家胜率 3/5'}
-                {difficulty === 'medium' && '玩家胜率 2/5'}
-                {difficulty === 'hard' && '玩家胜率 1/5'}
+                {difficulty === 'easy' && '玩家胜率 3/5 · AI较保守'}
+                {difficulty === 'medium' && '玩家胜率 2/5 · AI较激进'}
+                {difficulty === 'hard' && '玩家胜率 1/5 · AI极强'}
               </p>
             </div>
             
@@ -767,9 +782,9 @@ function App() {
           </div>
         )}
 
-        {isProcessing && (
-          <div className="text-center text-yellow-500 animate-pulse">
-            ⏳ 对手思考中...
+        {phase === 'waitingForAI' && (
+          <div className="text-center text-yellow-500 text-sm">
+            ⚡ 对手出招中...
           </div>
         )}
         
