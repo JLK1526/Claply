@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-type GamePhase = 'start' | 'countdown' | 'playing' | 'roundResult' | 'gameOver';
+type GamePhase = 'start' | 'countdown' | 'playing' | 'waitingForAI' | 'gameOver';
 type ActionType = 'defend' | 'attack' | 'inhale';
 type ThemeMode = 'dark' | 'light';
+type Difficulty = 'easy' | 'medium' | 'hard';
 
 interface Action {
   type: ActionType;
@@ -109,6 +110,8 @@ function App() {
   const [phase, setPhase] = useState<GamePhase>('start');
   const [countdown, setCountdown] = useState(3);
   const [round, setRound] = useState(1);
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
+  const [showQiInsufficient, setShowQiInsufficient] = useState(false);
   const [player, setPlayer] = useState<Player>({
     name: '玩家',
     qi: 0,
@@ -194,27 +197,74 @@ function App() {
     return levels;
   };
 
-  // AI opponent decision
+  // AI opponent decision based on difficulty
   const getAIAction = (ai: Player): Action => {
     const rand = Math.random();
 
-    if (ai.qi === 0 || (ai.qi <= 1 && rand < 0.4)) {
+    // Difficulty-based probabilities
+    // Easy: AI is weak (player wins more often)
+    // Medium: balanced
+    // Hard: AI is strong (player wins less often)
+    
+    let attackProb: number;
+    let defendProb: number;
+    let inhaleProb: number;
+    let preferHighLevel: boolean;
+
+    switch (difficulty) {
+      case 'easy':
+        attackProb = 0.25;
+        defendProb = 0.35;
+        inhaleProb = 0.40;
+        preferHighLevel = false;
+        break;
+      case 'medium':
+        attackProb = 0.40;
+        defendProb = 0.30;
+        inhaleProb = 0.30;
+        preferHighLevel = false;
+        break;
+      case 'hard':
+        attackProb = 0.55;
+        defendProb = 0.25;
+        inhaleProb = 0.20;
+        preferHighLevel = true;
+        break;
+    }
+
+    // If no qi, must inhale
+    if (ai.qi === 0) {
       return { type: 'inhale', level: 1 };
     }
 
-    if (rand < 0.4) {
+    // Low qi and easy difficulty: more likely to inhale
+    if (ai.qi <= 1 && rand < inhaleProb) {
+      return { type: 'inhale', level: 1 };
+    }
+
+    if (rand < attackProb) {
       const availableLevels = getAvailableLevels('attack', ai.qi);
       if (availableLevels.length > 0) {
-        const levelIdx = Math.min(
-          Math.floor(Math.random() * availableLevels.length * 0.7 + availableLevels.length * 0.3),
-          availableLevels.length - 1
-        );
+        let levelIdx: number;
+        if (preferHighLevel) {
+          // Hard: prefer highest levels
+          levelIdx = availableLevels.length - 1;
+        } else {
+          // Easy/Medium: random or slightly prefer lower
+          levelIdx = Math.floor(Math.random() * availableLevels.length);
+        }
         return { type: 'attack', level: availableLevels[levelIdx] };
       }
-    } else if (rand < 0.65) {
+    } else if (rand < attackProb + defendProb) {
       const availableLevels = getAvailableLevels('defend', ai.qi);
       if (availableLevels.length > 0) {
-        const levelIdx = Math.floor(Math.random() * availableLevels.length);
+        let levelIdx: number;
+        if (preferHighLevel) {
+          // Hard: prefer higher defense
+          levelIdx = Math.min(availableLevels.length - 1, Math.floor(availableLevels.length * 0.7));
+        } else {
+          levelIdx = Math.floor(Math.random() * availableLevels.length);
+        }
         return { type: 'defend', level: availableLevels[levelIdx] };
       }
     }
@@ -230,18 +280,12 @@ function App() {
 
   // Resolve round
   const resolveRound = useCallback((playerAction: Action, aiAction: Action) => {
-    let newPlayerQi = player.qi;
+    // Player qi already updated in handleAction, only update opponent qi
     let newOpponentQi = opponent.qi;
     const newLogs: LogEntry[] = [];
     let playerDied = false;
     let opponentDied = false;
     let msg = '';
-
-    if (playerAction.type === 'inhale') {
-      newPlayerQi += 1;
-    } else {
-      newPlayerQi -= getQiCost(playerAction.type, playerAction.level);
-    }
 
     if (aiAction.type === 'inhale') {
       newOpponentQi += 1;
@@ -255,7 +299,7 @@ function App() {
       return `⚡ ${who}发动${action.level}级攻击！`;
     };
 
-    newLogs.push({ text: actionText(player.name, playerAction), type: playerAction.type === 'attack' ? 'attack' : playerAction.type === 'defend' ? 'defend' : 'inhale' });
+    // Only log AI action (player action already logged)
     newLogs.push({ text: actionText(opponent.name, aiAction), type: aiAction.type === 'attack' ? 'attack' : aiAction.type === 'defend' ? 'defend' : 'inhale' });
 
     const playerAttacks = playerAction.type === 'attack';
@@ -303,11 +347,6 @@ function App() {
       }
     }
 
-    setPlayer(prev => ({
-      ...prev,
-      qi: newPlayerQi,
-      lastAction: playerAction,
-    }));
     setOpponent(prev => ({
       ...prev,
       qi: newOpponentQi,
@@ -335,6 +374,7 @@ function App() {
       setShowToast(true);
       setTimeout(() => setShowToast(false), 1500);
       setRound(prev => prev + 1);
+      setPhase('playing'); // Reset to playing phase for next round
     }
 
     return !playerDied && !opponentDied;
@@ -353,20 +393,60 @@ function App() {
   };
 
   const handleAction = (type: ActionType, level: number) => {
-    if (isProcessing || phase !== 'playing') return;
+    if (isProcessing || (phase !== 'playing' && phase !== 'waitingForAI')) return;
+    if (phase === 'waitingForAI') return; // Don't allow action while waiting for AI
     if (!isValidAction(type, level, player.qi)) return;
 
     setIsProcessing(true);
     const playerAction: Action = { type, level };
-    const aiAction = getAIAction(opponent);
 
     addLog(`--- 第${round}回合 ---`, 'system');
+    
+    // Log player's action immediately
+    const actionText = (who: string, action: Action) => {
+      if (action.type === 'inhale') return `🌬️ ${who}吸了一口气！（气数+1）`;
+      if (action.type === 'defend') return `🛡️ ${who}展开${action.level}级防御！`;
+      return `⚡ ${who}发动${action.level}级攻击！`;
+    };
+    
+    const logType = playerAction.type === 'attack' ? 'attack' : playerAction.type === 'defend' ? 'defend' : 'inhale';
+    addLog(actionText(player.name, playerAction), logType);
+    
+    // Update player state immediately
+    let newPlayerQi = player.qi;
+    if (playerAction.type === 'inhale') {
+      newPlayerQi += 1;
+    } else {
+      newPlayerQi -= getQiCost(playerAction.type, playerAction.level);
+    }
+    
+    setPlayer(prev => ({
+      ...prev,
+      qi: newPlayerQi,
+      lastAction: playerAction,
+    }));
+    
+    // Set phase to waiting for AI
+    setPhase('waitingForAI');
 
-    const delay = 300 + Math.random() * 200;
+    // AI decides after 0.5-0.8 seconds
+    const delay = 500 + Math.random() * 300;
     setTimeout(() => {
+      const aiAction = getAIAction(opponent);
       resolveRound(playerAction, aiAction);
       setIsProcessing(false);
     }, delay);
+  };
+  
+  // Handle attack button click when qi is insufficient
+  const handleAttackClick = () => {
+    if (player.qi === 0) {
+      setShowQiInsufficient(true);
+      setTimeout(() => setShowQiInsufficient(false), 1500);
+    } else {
+      setSelectedAction('attack');
+      setSelectedLevel(1);
+    }
   };
 
   // Theme toggle button component
@@ -397,6 +477,49 @@ function App() {
               ⚔️ 气功对决
             </h1>
             <p className={`${theme.textSecondary} text-lg mb-2`}>回合制战斗游戏</p>
+            
+            {/* Difficulty Selection */}
+            <div className="mb-6">
+              <p className={`${theme.textSecondary} text-sm mb-3`}>选择难度：</p>
+              <div className="flex justify-center gap-3">
+                <button
+                  onClick={() => setDifficulty('easy')}
+                  className={`px-6 py-2 rounded-lg font-bold transition-all ${
+                    difficulty === 'easy'
+                      ? 'bg-green-600 text-white scale-105'
+                      : `${theme.btnBg} ${theme.textSecondary} ${theme.btnHover}`
+                  }`}
+                >
+                  低难度
+                </button>
+                <button
+                  onClick={() => setDifficulty('medium')}
+                  className={`px-6 py-2 rounded-lg font-bold transition-all ${
+                    difficulty === 'medium'
+                      ? 'bg-yellow-600 text-white scale-105'
+                      : `${theme.btnBg} ${theme.textSecondary} ${theme.btnHover}`
+                  }`}
+                >
+                  中难度
+                </button>
+                <button
+                  onClick={() => setDifficulty('hard')}
+                  className={`px-6 py-2 rounded-lg font-bold transition-all ${
+                    difficulty === 'hard'
+                      ? 'bg-red-600 text-white scale-105'
+                      : `${theme.btnBg} ${theme.textSecondary} ${theme.btnHover}`
+                  }`}
+                >
+                  高难度
+                </button>
+              </div>
+              <p className={`${theme.textMuted} text-xs mt-2`}>
+                {difficulty === 'easy' && '玩家胜率 3/5'}
+                {difficulty === 'medium' && '玩家胜率 2/5'}
+                {difficulty === 'hard' && '玩家胜率 1/5'}
+              </p>
+            </div>
+            
             <div className={`${theme.textMuted} text-sm mb-8 max-w-md mx-auto text-left ${theme.cardBg} backdrop-blur-sm p-4 rounded-lg border ${theme.border}`}>
               <p className="mb-2">📜 <strong>游戏规则：</strong></p>
               <p className="mb-1">• 每回合选择：防御、攻击或吸气</p>
@@ -582,7 +705,7 @@ function App() {
             🛡️ 防御
           </button>
           <button
-            onClick={() => { setSelectedAction('attack'); setSelectedLevel(1); }}
+            onClick={handleAttackClick}
             disabled={isProcessing}
             className={`px-4 py-2 rounded-lg font-bold transition-all ${
               selectedAction === 'attack'
@@ -647,6 +770,12 @@ function App() {
         {isProcessing && (
           <div className="text-center text-yellow-500 animate-pulse">
             ⏳ 对手思考中...
+          </div>
+        )}
+        
+        {showQiInsufficient && (
+          <div className="text-center text-red-500 font-bold animate-pulse mt-2">
+            ⚠️ 气数不足
           </div>
         )}
       </div>
