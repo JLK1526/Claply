@@ -1,97 +1,1306 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>拍手模拟器 - 回合制战斗游戏 三鑫特色</title>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
     <style>
-      /* 内联样式确保主题色立即生效，避免闪烁 */
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-      }
-      html.light,
-      html.light body {
-        background-color: #ffffff !important;
-        color: #000000;
-      }
-      html.dark,
-      html.dark body {
-        background-color: #1a1a1a !important;
-        color: #ffffff;
-      }
-    </style>
-    <script>
-      // 在 React 加载前立即设置主题，避免闪烁
-      (function () {
-        const isInIframe = window.self !== window.top;
-
-        function applyThemeToDOM(theme) {
-          document.documentElement.classList.remove("light", "dark");
-          document.documentElement.classList.add(theme);
-          document.documentElement.setAttribute("data-theme", theme);
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        if (isInIframe) {
-          // 监听父窗口主动推送的主题消息
-          window.addEventListener("message", function (event) {
-            if (event.data && typeof event.data.theme === "string") {
-              const theme = event.data.theme;
-              if (theme === "light" || theme === "dark") {
-                applyThemeToDOM(theme);
-              }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            min-height: 100vh;
+            transition: background 0.5s;
+        }
+
+        /* Dark theme */
+        body.dark {
+            background: linear-gradient(135deg, #1a1a2e 0%, #4a1d4a 50%, #1a1a2e 100%);
+            color: #fff;
+        }
+
+        /* Light theme */
+        body.light {
+            background: linear-gradient(135deg, #e0e7ff 0%, #e9d5ff 50%, #fce7f3 100%);
+            color: #1f2937;
+        }
+
+        .container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Theme toggle */
+        .theme-toggle {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            background: transparent;
+            border: 2px solid;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: all 0.3s;
+            z-index: 50;
+        }
+
+        body.dark .theme-toggle {
+            border-color: #facc15;
+        }
+
+        body.light .theme-toggle {
+            border-color: #4338ca;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .theme-toggle:active {
+            transform: scale(0.95);
+        }
+
+        /* Start screen */
+        .start-screen {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+        }
+
+        .start-content {
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 60px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .subtitle {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        body.dark .subtitle { color: #d1d5db; }
+        body.light .subtitle { color: #374151; }
+
+        /* Difficulty selection */
+        .difficulty-section {
+            margin: 24px 0;
+        }
+
+        .difficulty-label {
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        body.dark .difficulty-label { color: #d1d5db; }
+        body.light .difficulty-label { color: #374151; }
+
+        .difficulty-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .difficulty-btn {
+            padding: 8px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        body.dark .difficulty-btn {
+            background: #374151;
+            color: #d1d5db;
+        }
+
+        body.light .difficulty-btn {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .difficulty-btn:hover {
+            background: #4b5563;
+        }
+
+        body.dark .difficulty-btn.active-easy {
+            background: #16a34a;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        body.dark .difficulty-btn.active-medium {
+            background: #ca8a04;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        body.dark .difficulty-btn.active-hard {
+            background: #dc2626;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        body.light .difficulty-btn.active-easy {
+            background: #22c55e;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        body.light .difficulty-btn.active-medium {
+            background: #eab308;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        body.light .difficulty-btn.active-hard {
+            background: #ef4444;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .difficulty-info {
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        body.dark .difficulty-info { color: #9ca3af; }
+        body.light .difficulty-info { color: #6b7280; }
+
+        /* Rules */
+        .rules {
+            font-size: 14px;
+            margin: 32px auto;
+            max-width: 480px;
+            text-align: left;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid;
+        }
+
+        body.dark .rules {
+            background: rgba(31, 41, 55, 0.5);
+            color: #9ca3af;
+            border-color: #374151;
+        }
+
+        body.light .rules {
+            background: rgba(255, 255, 255, 0.8);
+            color: #6b7280;
+            border-color: #d1d5db;
+        }
+
+        .rules p {
+            margin-bottom: 4px;
+        }
+
+        .rules strong {
+            color: inherit;
+        }
+
+        /* Start button */
+        .start-btn {
+            padding: 16px 32px;
+            background: linear-gradient(to right, #9333ea, #ec4899);
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 10px 15px -3px rgba(147, 51, 234, 0.3);
+        }
+
+        .start-btn:hover {
+            background: linear-gradient(to right, #a855f7, #f472b6);
+            transform: scale(1.05);
+        }
+
+        /* Battle records */
+        .records-section {
+            background: rgba(0, 0, 0, 0.4);
+            border-top: 1px solid #374151;
+            padding: 16px;
+        }
+
+        body.light .records-section {
+            background: rgba(255, 255, 255, 0.6);
+            border-color: #d1d5db;
+        }
+
+        .records-title {
+            color: #eab308;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .records-list {
+            max-width: 512px;
+            margin: 0 auto;
+            max-height: 192px;
+            overflow-y: auto;
+        }
+
+        .record-item {
+            border-radius: 8px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+            margin-bottom: 8px;
+            border: 1px solid;
+        }
+
+        body.dark .record-item {
+            background: rgba(31, 41, 55, 0.6);
+            border-color: #374151;
+        }
+
+        body.light .record-item {
+            background: rgba(255, 255, 255, 0.7);
+            border-color: #d1d5db;
+        }
+
+        .record-winner { color: #22c55e; font-weight: bold; }
+        .record-loser { color: #ef4444; }
+        .record-vs { color: #9ca3af; }
+        .record-info {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        /* Game screen */
+        .game-screen {
+            display: none;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .game-screen.active {
+            display: flex;
+        }
+
+        /* Header */
+        .game-header {
+            text-align: center;
+            padding: 12px;
+        }
+
+        body.dark .game-header { background: rgba(0, 0, 0, 0.3); }
+        body.light .game-header { background: rgba(255, 255, 255, 0.5); }
+
+        .game-title {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .round-info {
+            font-size: 14px;
+            color: #9ca3af;
+        }
+
+        /* Battle area */
+        .battle-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 16px;
+        }
+
+        @media (min-width: 768px) {
+            .battle-area {
+                flex-direction: row;
             }
-          });
-        } else {
-          // 非 iframe 环境，使用默认 light 主题
-          applyThemeToDOM("light");
         }
-      })();
-    </script>
-      <script>
-      (function () {
-        if (window.self === window.top) return;
-        var reported = {};
-        window.addEventListener("error", function (event) {
-          // 资源加载失败的 error 事件没有 message，此处仅上报 JS 运行时错误
-          if (!event || !event.message) return;
-          var key =
-            event.message + "|" + (event.filename || "") + "|" + (event.lineno || 0);
-          if (reported[key]) return; // 相同错误只上报一次，避免渲染循环刷屏
-          reported[key] = true;
-          try {
-            window.parent.postMessage(
-              {
-                type: "sandbox-runtime-error",
-                payload: {
-                  message: String(event.message).slice(0, 500),
-                  filename: event.filename || "",
-                  lineno: event.lineno || 0,
-                  colno: event.colno || 0,
-                  stack:
-                    event.error && event.error.stack
-                      ? String(event.error.stack).slice(0, 2000)
-                      : ""
-                }
-              },
-              "*"
-            );
-          } catch (e) {
-            /* 上报失败不影响页面运行 */
-          }
+
+        .player-card {
+            border-radius: 16px;
+            padding: 20px;
+            width: 100%;
+            max-width: 320px;
+            border: 1px solid;
+        }
+
+        body.dark .player-card {
+            background: rgba(31, 41, 55, 0.7);
+        }
+
+        body.light .player-card {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .player-card.player {
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .player-card.opponent {
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .player-avatar {
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .player-name {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .qi-section {
+            margin-bottom: 8px;
+        }
+
+        .qi-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            margin-bottom: 4px;
+            color: #d1d5db;
+        }
+
+        body.light .qi-label { color: #374151; }
+
+        .qi-value {
+            font-weight: bold;
+        }
+
+        .player .qi-value { color: #22d3ee; }
+        .opponent .qi-value { color: #fb923c; }
+
+        .qi-dots {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .qi-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        .player .qi-dot { background: #22d3ee; }
+        .opponent .qi-dot { background: #fb923c; }
+
+        .qi-empty {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .last-action {
+            font-size: 12px;
+            margin-top: 8px;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        body.dark .last-action {
+            background: rgba(17, 24, 39, 0.5);
+            color: #9ca3af;
+        }
+
+        body.light .last-action {
+            background: rgba(243, 244, 246, 0.8);
+            color: #6b7280;
+        }
+
+        .vs {
+            font-size: 36px;
+            font-weight: bold;
+            color: #eab308;
+            animation: pulse 2s infinite;
+        }
+
+        /* Action panel */
+        .action-panel {
+            padding: 16px;
+            border-top: 1px solid #374151;
+        }
+
+        body.dark .action-panel { background: rgba(0, 0, 0, 0.5); }
+        body.light .action-panel { background: rgba(255, 255, 255, 0.6); border-color: #d1d5db; }
+
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        body.dark .action-btn {
+            background: #374151;
+            color: #d1d5db;
+        }
+
+        body.light .action-btn {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .action-btn:hover:not(:disabled) {
+            background: #4b5563;
+        }
+
+        body.light .action-btn:hover:not(:disabled) {
+            background: #d1d5db;
+        }
+
+        .action-btn.active-defend {
+            background: #2563eb;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .action-btn.active-attack {
+            background: #dc2626;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .action-btn.active-inhale {
+            background: #16a34a;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .level-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .level-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .level-btn.defend {
+            background: linear-gradient(to right, #1d4ed8, #2563eb);
+        }
+
+        .level-btn.attack {
+            background: linear-gradient(to right, #b91c1c, #dc2626);
+        }
+
+        .level-btn.inhale {
+            background: linear-gradient(to right, #15803d, #16a34a);
+            padding: 12px 24px;
+            border-radius: 12px;
+        }
+
+        .level-btn:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+
+        .level-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .level-cost {
+            font-size: 12px;
+            margin-left: 4px;
+            opacity: 0.75;
+        }
+
+        .waiting-msg {
+            text-align: center;
+            font-size: 14px;
+            color: #eab308;
+        }
+
+        .qi-insufficient {
+            text-align: center;
+            color: #ef4444;
+            font-weight: bold;
+            margin-top: 8px;
+            animation: pulse 1s infinite;
+        }
+
+        /* Battle log */
+        .battle-log {
+            padding: 12px;
+            max-height: 160px;
+            overflow-y: auto;
+            border-top: 1px solid #374151;
+        }
+
+        body.dark .battle-log { background: rgba(0, 0, 0, 0.6); }
+        body.light .battle-log { background: rgba(255, 255, 255, 0.7); border-color: #d1d5db; }
+
+        .log-entry {
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .log-attack { color: #ef4444; }
+        .log-defend { color: #3b82f6; }
+        .log-inhale { color: #22c55e; }
+        .log-death { color: #a855f7; font-weight: bold; }
+        .log-system { color: #eab308; font-weight: bold; }
+        .log-info { color: #9ca3af; }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(to right, #eab308, #f97316);
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+            padding: 16px 32px;
+            border-radius: 16px;
+            box-shadow: 0 25px 50px -12px rgba(234, 179, 8, 0.5);
+            z-index: 40;
+            display: none;
+        }
+
+        .toast.show {
+            display: block;
+            animation: bounce 1s;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translate(-50%, -50%); }
+            50% { transform: translate(-50%, -60%); }
+        }
+
+        /* Game over screen */
+        .gameover-screen {
+            display: none;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gameover-screen.active {
+            display: flex;
+        }
+
+        body.dark .gameover-screen {
+            background: linear-gradient(135deg, #1a1a2e 0%, rgba(127, 29, 29, 0.3) 50%, #1a1a2e 100%);
+        }
+
+        body.light .gameover-screen {
+            background: linear-gradient(135deg, #e0e7ff 0%, rgba(254, 202, 202, 0.5) 50%, #fce7f3 100%);
+        }
+
+        .gameover-content {
+            text-align: center;
+            padding: 32px;
+        }
+
+        .gameover-icon {
+            font-size: 64px;
+            margin-bottom: 24px;
+        }
+
+        .gameover-title {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 16px;
+        }
+
+        .gameover-msg {
+            font-size: 20px;
+            color: #eab308;
+            margin-bottom: 8px;
+        }
+
+        .gameover-rounds {
+            color: #9ca3af;
+            margin-bottom: 32px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body class="dark">
+    <button class="theme-toggle" id="themeToggle">☀️</button>
+
+    <!-- Start Screen -->
+    <div class="container" id="startScreen">
+        <div class="start-screen">
+            <div class="start-content">
+                <h1>拍手模拟器</h1>
+                <p class="subtitle">回合制战斗游戏 三鑫特色</p>
+
+                <div class="difficulty-section">
+                    <p class="difficulty-label">选择难度：</p>
+                    <div class="difficulty-buttons">
+                        <button class="difficulty-btn" data-difficulty="easy">低难度</button>
+                        <button class="difficulty-btn active-medium" data-difficulty="medium">中难度</button>
+                        <button class="difficulty-btn" data-difficulty="hard">高难度</button>
+                    </div>
+                    <p class="difficulty-info" id="difficultyInfo">玩家胜率 2/5 · AI激进</p>
+                </div>
+
+                <div class="rules">
+                    <p><strong>📜 游戏规则：</strong></p>
+                    <p>• 每回合选择：防御、攻击或吸气</p>
+                    <p>• 吸气：气数+1（但无防御力，相当于0级防御）</p>
+                    <p>• 防御：x级防御消耗(x-1)气，抵挡x级及以下攻击</p>
+                    <p>• 攻击：y级攻击消耗y气，击破低于y级的防御</p>
+                    <p>• 最高5级，5级只有攻击没有防御</p>
+                    <p>• 攻击 vs 攻击：等级高者获胜，相同则无事发生</p>
+                    <p>• 攻击 vs 防御：攻击等级 > 防御等级，防御方死亡</p>
+                    <p>• 吸气时受到任何攻击都会死亡</p>
+                </div>
+
+                <button class="start-btn" id="startBtn">开始游戏</button>
+            </div>
+        </div>
+
+        <div class="records-section hidden" id="recordsSection">
+            <h3 class="records-title">📋 对战记录</h3>
+            <div class="records-list" id="recordsList"></div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div class="game-screen" id="gameScreen">
+        <div class="game-header">
+            <h1 class="game-title">拍手模拟器</h1>
+            <p class="round-info">第 <span id="roundNum">1</span> 回合</p>
+        </div>
+
+        <div class="battle-area">
+            <div class="player-card player">
+                <div class="player-avatar">🧑</div>
+                <h2 class="player-name">玩家</h2>
+                <div class="qi-section">
+                    <div class="qi-label">
+                        <span>💨 气数</span>
+                        <span class="qi-value" id="playerQi">0</span>
+                    </div>
+                    <div class="qi-dots" id="playerQiDots"></div>
+                </div>
+                <div class="last-action hidden" id="playerLastAction"></div>
+            </div>
+
+            <div class="vs">VS</div>
+
+            <div class="player-card opponent">
+                <div class="player-avatar">👹</div>
+                <h2 class="player-name">对手</h2>
+                <div class="qi-section">
+                    <div class="qi-label">
+                        <span>💨 气数</span>
+                        <span class="qi-value" id="opponentQi">0</span>
+                    </div>
+                    <div class="qi-dots" id="opponentQiDots"></div>
+                </div>
+                <div class="last-action hidden" id="opponentLastAction"></div>
+            </div>
+        </div>
+
+        <div class="action-panel">
+            <div class="action-buttons">
+                <button class="action-btn" id="defendBtn">🛡️ 防御</button>
+                <button class="action-btn" id="attackBtn">⚡ 攻击</button>
+                <button class="action-btn" id="inhaleBtn">🌬️ 吸气</button>
+            </div>
+            <div class="level-buttons" id="levelButtons"></div>
+            <div class="waiting-msg hidden" id="waitingMsg">⚡ 对手出招中...</div>
+            <div class="qi-insufficient hidden" id="qiInsufficient">⚠️ 气数不足</div>
+        </div>
+
+        <div class="battle-log" id="battleLog">
+            <p class="log-entry log-info" style="text-align: center;">战斗日志将在此显示...</p>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">📢 已进入下一回合</div>
+
+    <!-- Game Over Screen -->
+    <div class="gameover-screen" id="gameoverScreen">
+        <div class="gameover-content">
+            <div class="gameover-icon" id="gameoverIcon">🎉</div>
+            <h1 class="gameover-title" id="gameoverTitle">你获胜了！</h1>
+            <p class="gameover-msg" id="gameoverMsg"></p>
+            <p class="gameover-rounds" id="gameoverRounds"></p>
+            <button class="start-btn" id="backBtn">返回主界面</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let gameState = {
+            phase: 'start',
+            round: 1,
+            difficulty: 'medium',
+            theme: 'dark',
+            player: { name: '玩家', qi: 0, lastAction: null },
+            opponent: { name: '对手', qi: 0, lastAction: null },
+            logs: [],
+            selectedAction: null,
+            isProcessing: false,
+            battleRecords: []
+        };
+
+        // DOM elements
+        const elements = {
+            themeToggle: document.getElementById('themeToggle'),
+            startScreen: document.getElementById('startScreen'),
+            gameScreen: document.getElementById('gameScreen'),
+            gameoverScreen: document.getElementById('gameoverScreen'),
+            startBtn: document.getElementById('startBtn'),
+            backBtn: document.getElementById('backBtn'),
+            roundNum: document.getElementById('roundNum'),
+            playerQi: document.getElementById('playerQi'),
+            opponentQi: document.getElementById('opponentQi'),
+            playerQiDots: document.getElementById('playerQiDots'),
+            opponentQiDots: document.getElementById('opponentQiDots'),
+            playerLastAction: document.getElementById('playerLastAction'),
+            opponentLastAction: document.getElementById('opponentLastAction'),
+            defendBtn: document.getElementById('defendBtn'),
+            attackBtn: document.getElementById('attackBtn'),
+            inhaleBtn: document.getElementById('inhaleBtn'),
+            levelButtons: document.getElementById('levelButtons'),
+            waitingMsg: document.getElementById('waitingMsg'),
+            qiInsufficient: document.getElementById('qiInsufficient'),
+            battleLog: document.getElementById('battleLog'),
+            toast: document.getElementById('toast'),
+            recordsSection: document.getElementById('recordsSection'),
+            recordsList: document.getElementById('recordsList'),
+            difficultyInfo: document.getElementById('difficultyInfo'),
+            gameoverIcon: document.getElementById('gameoverIcon'),
+            gameoverTitle: document.getElementById('gameoverTitle'),
+            gameoverMsg: document.getElementById('gameoverMsg'),
+            gameoverRounds: document.getElementById('gameoverRounds')
+        };
+
+        // Theme toggle
+        elements.themeToggle.addEventListener('click', () => {
+            gameState.theme = gameState.theme === 'dark' ? 'light' : 'dark';
+            document.body.className = gameState.theme;
+            elements.themeToggle.textContent = gameState.theme === 'dark' ? '☀️' : '🌙';
         });
-      })();
+
+        // Difficulty selection
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const difficulty = btn.dataset.difficulty;
+                gameState.difficulty = difficulty;
+                
+                document.querySelectorAll('.difficulty-btn').forEach(b => {
+                    b.className = 'difficulty-btn';
+                });
+                btn.classList.add(`active-${difficulty}`);
+
+                const info = {
+                    easy: '玩家胜率 3/5 · AI聪明',
+                    medium: '玩家胜率 2/5 · AI激进',
+                    hard: '玩家胜率 1/5 · AI近乎完美'
+                };
+                elements.difficultyInfo.textContent = info[difficulty];
+            });
+        });
+
+        // Start game
+        elements.startBtn.addEventListener('click', startGame);
+        elements.backBtn.addEventListener('click', () => {
+            elements.gameoverScreen.classList.remove('active');
+            elements.startScreen.classList.remove('hidden');
+            elements.startScreen.style.display = 'flex';
+        });
+
+        function startGame() {
+            gameState.phase = 'playing';
+            gameState.round = 1;
+            gameState.player = { name: '玩家', qi: 0, lastAction: null };
+            gameState.opponent = { name: '对手', qi: 0, lastAction: null };
+            gameState.logs = [];
+            gameState.selectedAction = null;
+            gameState.isProcessing = false;
+
+            elements.startScreen.classList.add('hidden');
+            elements.startScreen.style.display = 'none';
+            elements.gameScreen.classList.add('active');
+            elements.gameoverScreen.classList.remove('active');
+
+            addLog('⚔️ 战斗开始！', 'system');
+            updateUI();
+        }
+
+        // Game logic
+        function getQiCost(type, level) {
+            if (type === 'inhale') return 0;
+            if (type === 'defend') return level - 1;
+            if (type === 'attack') return level;
+            return 0;
+        }
+
+        function isValidAction(type, level, qi) {
+            if (type === 'defend' && level === 5) return false;
+            return qi >= getQiCost(type, level);
+        }
+
+        function getAvailableLevels(type, qi) {
+            const maxLevel = type === 'defend' ? 4 : 5;
+            const levels = [];
+            for (let i = 1; i <= maxLevel; i++) {
+                if (isValidAction(type, i, qi)) {
+                    levels.push(i);
+                }
+            }
+            return levels;
+        }
+
+        function getDefenseLevel(action) {
+            return action.type === 'defend' ? action.level : 0;
+        }
+
+        // AI logic - reacts to player's action
+        function getAIAction(ai, playerAction) {
+            const rand = Math.random();
+
+            if (ai.qi === 0) {
+                return { type: 'inhale', level: 1 };
+            }
+
+            const playerAttacks = playerAction.type === 'attack';
+            const playerDefends = playerAction.type === 'defend';
+            const playerInhales = playerAction.type === 'inhale';
+            const playerAttackLevel = playerAttacks ? playerAction.level : 0;
+            const playerDefendLevel = playerDefends ? playerAction.level : 0;
+
+            switch (gameState.difficulty) {
+                case 'easy':
+                    if (playerInhales) {
+                        if (ai.qi >= 1) return { type: 'attack', level: Math.min(ai.qi, 5) };
+                    } else if (playerAttacks) {
+                        if (ai.qi >= playerAttackLevel && playerAttackLevel <= 4) {
+                            return { type: 'defend', level: playerAttackLevel };
+                        } else if (ai.qi >= 1) {
+                            return { type: 'attack', level: Math.min(ai.qi, 5) };
+                        }
+                    } else if (playerDefends) {
+                        if (ai.qi > playerDefendLevel) {
+                            return { type: 'attack', level: Math.min(ai.qi, playerDefendLevel + 1) };
+                        } else if (ai.qi >= 1) {
+                            return rand < 0.6 
+                                ? { type: 'attack', level: Math.min(ai.qi, 5) }
+                                : { type: 'defend', level: Math.min(ai.qi, 4) };
+                        }
+                    }
+                    return { type: 'inhale', level: 1 };
+
+                case 'medium':
+                    if (playerInhales) {
+                        return { type: 'attack', level: Math.min(ai.qi, 5) };
+                    } else if (playerAttacks) {
+                        if (ai.qi >= playerAttackLevel && playerAttackLevel <= 4) {
+                            return rand < 0.7
+                                ? { type: 'defend', level: playerAttackLevel }
+                                : (ai.qi >= 1 ? { type: 'attack', level: Math.min(ai.qi, 5) } : { type: 'inhale', level: 1 });
+                        } else {
+                            return { type: 'attack', level: Math.min(ai.qi, 5) };
+                        }
+                    } else if (playerDefends) {
+                        if (ai.qi > playerDefendLevel) {
+                            return { type: 'attack', level: Math.min(ai.qi, playerDefendLevel + 1) };
+                        } else {
+                            return rand < 0.5 && ai.qi >= 1
+                                ? { type: 'attack', level: Math.min(ai.qi, 5) }
+                                : { type: 'inhale', level: 1 };
+                        }
+                    }
+                    return { type: 'inhale', level: 1 };
+
+                case 'hard':
+                    if (playerInhales) {
+                        return { type: 'attack', level: Math.min(ai.qi, 5) };
+                    } else if (playerAttacks) {
+                        if (ai.qi >= playerAttackLevel && playerAttackLevel <= 4) {
+                            return rand < 0.85
+                                ? { type: 'defend', level: playerAttackLevel }
+                                : (ai.qi >= 1 ? { type: 'attack', level: Math.min(ai.qi, 5) } : { type: 'inhale', level: 1 });
+                        } else {
+                            return { type: 'attack', level: Math.min(ai.qi, 5) };
+                        }
+                    } else if (playerDefends) {
+                        if (ai.qi > playerDefendLevel) {
+                            return { type: 'attack', level: Math.min(ai.qi, playerDefendLevel + 1) };
+                        } else {
+                            return { type: 'inhale', level: 1 };
+                        }
+                    }
+                    return { type: 'inhale', level: 1 };
+            }
+
+            return { type: 'inhale', level: 1 };
+        }
+
+        function addLog(text, type = 'info') {
+            gameState.logs.push({ text, type });
+            renderLog();
+        }
+
+        function renderLog() {
+            if (gameState.logs.length === 0) {
+                elements.battleLog.innerHTML = '<p class="log-entry log-info" style="text-align: center;">战斗日志将在此显示...</p>';
+                return;
+            }
+
+            elements.battleLog.innerHTML = gameState.logs.map(log => {
+                const className = `log-${log.type}`;
+                return `<p class="log-entry ${className}">${log.text}</p>`;
+            }).join('');
+
+            elements.battleLog.scrollTop = elements.battleLog.scrollHeight;
+        }
+
+        function actionText(who, action) {
+            if (action.type === 'inhale') return `🌬️ ${who}吸了一口气！（气数+1）`;
+            if (action.type === 'defend') return `🛡️ ${who}展开${action.level}级防御！`;
+            return `⚡ ${who}发动${action.level}级攻击！`;
+        }
+
+        function handleAction(type, level) {
+            if (gameState.isProcessing || gameState.phase !== 'playing') return;
+            if (!isValidAction(type, level, gameState.player.qi)) return;
+
+            gameState.isProcessing = true;
+            const playerAction = { type, level };
+
+            addLog(`--- 第${gameState.round}回合 ---`, 'system');
+
+            const logType = type === 'attack' ? 'attack' : type === 'defend' ? 'defend' : 'inhale';
+            addLog(actionText(gameState.player.name, playerAction), logType);
+
+            // Update player qi
+            if (type === 'inhale') {
+                gameState.player.qi += 1;
+            } else {
+                gameState.player.qi -= getQiCost(type, level);
+            }
+            gameState.player.lastAction = playerAction;
+
+            // Show waiting message
+            elements.waitingMsg.classList.remove('hidden');
+            disableActions(true);
+
+            // AI decides after 0.1 seconds
+            setTimeout(() => {
+                const aiAction = getAIAction(gameState.opponent, playerAction);
+                resolveRound(playerAction, aiAction);
+            }, 100);
+        }
+
+        function resolveRound(playerAction, aiAction) {
+            let msg = '';
+            let playerDied = false;
+            let opponentDied = false;
+
+            // Update opponent qi
+            if (aiAction.type === 'inhale') {
+                gameState.opponent.qi += 1;
+            } else {
+                gameState.opponent.qi -= getQiCost(aiAction.type, aiAction.level);
+            }
+            gameState.opponent.lastAction = aiAction;
+
+            // Log AI action
+            const aiLogType = aiAction.type === 'attack' ? 'attack' : aiAction.type === 'defend' ? 'defend' : 'inhale';
+            addLog(actionText(gameState.opponent.name, aiAction), aiLogType);
+
+            const playerAttacks = playerAction.type === 'attack';
+            const aiAttacks = aiAction.type === 'attack';
+            const playerDefends = getDefenseLevel(playerAction);
+            const aiDefends = getDefenseLevel(aiAction);
+
+            if (playerAttacks && aiAttacks) {
+                if (playerAction.level > aiAction.level) {
+                    opponentDied = true;
+                    addLog(`💀 ${gameState.player.name}的${playerAction.level}级攻击压制了${gameState.opponent.name}的${aiAction.level}级攻击，${gameState.opponent.name}被击杀！`, 'death');
+                    msg = `${playerAction.level}级攻击 > ${aiAction.level}级攻击，${gameState.opponent.name}被击杀！`;
+                } else if (aiAction.level > playerAction.level) {
+                    playerDied = true;
+                    addLog(`💀 ${gameState.opponent.name}的${aiAction.level}级攻击压制了你的${playerAction.level}级攻击，你被击杀！`, 'death');
+                    msg = `${aiAction.level}级攻击 > ${playerAction.level}级攻击，你被击杀！`;
+                } else {
+                    addLog(`⚔️ 双方都出了${playerAction.level}级攻击，势均力敌，无事发生！`, 'info');
+                }
+            } else if (playerAttacks && !aiAttacks) {
+                if (playerAction.level > aiDefends) {
+                    opponentDied = true;
+                    if (aiAction.type === 'inhale') {
+                        addLog(`💀 ${gameState.opponent.name}正在吸气，毫无防备，被${playerAction.level}级攻击击杀！`, 'death');
+                        msg = `${gameState.opponent.name}在吸气时被击杀！`;
+                    } else {
+                        addLog(`💀 ${gameState.opponent.name}的${aiAction.level}级防御无法抵挡${playerAction.level}级攻击，被击杀！`, 'death');
+                        msg = `${playerAction.level}级攻击击破了${aiAction.level}级防御！`;
+                    }
+                } else {
+                    addLog(`✅ ${gameState.opponent.name}的${aiDefends}级防御成功抵挡了${playerAction.level}级攻击！`, 'defend');
+                }
+            } else if (!playerAttacks && aiAttacks) {
+                if (aiAction.level > playerDefends) {
+                    playerDied = true;
+                    if (playerAction.type === 'inhale') {
+                        addLog(`💀 你正在吸气，毫无防备，被${aiAction.level}级攻击击杀！`, 'death');
+                        msg = '你在吸气时被击杀！';
+                    } else {
+                        addLog(`💀 你的${playerAction.level}级防御无法抵挡${aiAction.level}级攻击，被击杀！`, 'death');
+                        msg = `${aiAction.level}级攻击击破了你的${playerAction.level}级防御！`;
+                    }
+                } else {
+                    addLog(`✅ 你的${playerDefends}级防御成功抵挡了${aiAction.level}级攻击！`, 'defend');
+                }
+            }
+
+            updateUI();
+
+            if (opponentDied) {
+                endGame(gameState.player.name, gameState.opponent.name, msg);
+            } else if (playerDied) {
+                endGame(gameState.opponent.name, gameState.player.name, msg);
+            } else {
+                // Continue to next round
+                addLog('📢 已进入下一回合', 'system');
+                gameState.selectedAction = null;
+                gameState.round += 1;
+                gameState.isProcessing = false;
+                elements.waitingMsg.classList.add('hidden');
+                disableActions(false);
+                updateUI();
+                showToast();
+            }
+        }
+
+        function endGame(winner, loser, msg) {
+            gameState.phase = 'gameOver';
+            
+            // Add battle record
+            const record = {
+                id: Date.now(),
+                winner,
+                loser,
+                rounds: gameState.round,
+                timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+            };
+            gameState.battleRecords.unshift(record);
+            if (gameState.battleRecords.length > 10) {
+                gameState.battleRecords = gameState.battleRecords.slice(0, 10);
+            }
+
+            // Show game over screen
+            setTimeout(() => {
+                elements.gameScreen.classList.remove('active');
+                elements.gameoverScreen.classList.add('active');
+
+                elements.gameoverIcon.textContent = winner === gameState.player.name ? '🎉' : '💀';
+                elements.gameoverTitle.textContent = winner === gameState.player.name ? '你获胜了！' : '你被击败了！';
+                elements.gameoverMsg.textContent = msg;
+                elements.gameoverRounds.textContent = `共进行了 ${gameState.round} 回合`;
+            }, 1000);
+        }
+
+        function showToast() {
+            elements.toast.classList.add('show');
+            setTimeout(() => {
+                elements.toast.classList.remove('show');
+            }, 1500);
+        }
+
+        function disableActions(disabled) {
+            elements.defendBtn.disabled = disabled;
+            elements.attackBtn.disabled = disabled;
+            elements.inhaleBtn.disabled = disabled;
+        }
+
+        function updateUI() {
+            // Update round
+            elements.roundNum.textContent = gameState.round;
+
+            // Update qi
+            elements.playerQi.textContent = gameState.player.qi;
+            elements.opponentQi.textContent = gameState.opponent.qi;
+
+            // Update qi dots
+            elements.playerQiDots.innerHTML = renderQiDots(gameState.player.qi, 'player');
+            elements.opponentQiDots.innerHTML = renderQiDots(gameState.opponent.qi, 'opponent');
+
+            // Update last actions
+            if (gameState.player.lastAction) {
+                elements.playerLastAction.classList.remove('hidden');
+                const action = gameState.player.lastAction;
+                elements.playerLastAction.textContent = `上回合: ${action.type === 'attack' ? `⚡攻击 Lv.${action.level}` : action.type === 'defend' ? `🛡️防御 Lv.${action.level}` : '🌬️吸气'}`;
+            }
+
+            if (gameState.opponent.lastAction) {
+                elements.opponentLastAction.classList.remove('hidden');
+                const action = gameState.opponent.lastAction;
+                elements.opponentLastAction.textContent = `上回合: ${action.type === 'attack' ? `⚡攻击 Lv.${action.level}` : action.type === 'defend' ? `🛡️防御 Lv.${action.level}` : '🌬️吸气'}`;
+            }
+
+            // Update level buttons
+            renderLevelButtons();
+
+            // Update action button states
+            updateActionButtons();
+        }
+
+        function renderQiDots(qi, who) {
+            const count = Math.min(qi, 10);
+            let html = '';
+            for (let i = 0; i < count; i++) {
+                html += `<div class="qi-dot" style="animation-delay: ${i * 0.1}s"></div>`;
+            }
+            if (qi === 0) {
+                html = '<span class="qi-empty">无气</span>';
+            } else if (qi > 10) {
+                html += `<span class="qi-empty">+${qi - 10}</span>`;
+            }
+            return html;
+        }
+
+        function renderLevelButtons() {
+            if (!gameState.selectedAction) {
+                elements.levelButtons.innerHTML = '';
+                return;
+            }
+
+            const qi = gameState.player.qi;
+            let html = '';
+
+            if (gameState.selectedAction === 'inhale') {
+                html = `<button class="level-btn inhale" onclick="handleAction('inhale', 1)">🌬️ 吸气（气数+1，无防御）</button>`;
+            } else if (gameState.selectedAction === 'defend') {
+                const levels = getAvailableLevels('defend', qi);
+                html = levels.map(level => 
+                    `<button class="level-btn defend" onclick="handleAction('defend', ${level})">🛡️ ${level}级防御<span class="level-cost">（${getQiCost('defend', level)}气）</span></button>`
+                ).join('');
+            } else if (gameState.selectedAction === 'attack') {
+                const levels = getAvailableLevels('attack', qi);
+                html = levels.map(level => 
+                    `<button class="level-btn attack" onclick="handleAction('attack', ${level})">⚡ ${level}级攻击<span class="level-cost">（${getQiCost('attack', level)}气）</span></button>`
+                ).join('');
+            }
+
+            elements.levelButtons.innerHTML = html;
+        }
+
+        function updateActionButtons() {
+            elements.defendBtn.className = 'action-btn' + (gameState.selectedAction === 'defend' ? ' active-defend' : '');
+            elements.attackBtn.className = 'action-btn' + (gameState.selectedAction === 'attack' ? ' active-attack' : '');
+            elements.inhaleBtn.className = 'action-btn' + (gameState.selectedAction === 'inhale' ? ' active-inhale' : '');
+        }
+
+        // Action button handlers
+        elements.defendBtn.addEventListener('click', () => {
+            if (gameState.isProcessing) return;
+            gameState.selectedAction = 'defend';
+            updateUI();
+        });
+
+        elements.attackBtn.addEventListener('click', () => {
+            if (gameState.isProcessing) return;
+            if (gameState.player.qi === 0) {
+                elements.qiInsufficient.classList.remove('hidden');
+                setTimeout(() => {
+                    elements.qiInsufficient.classList.add('hidden');
+                }, 1500);
+            } else {
+                gameState.selectedAction = 'attack';
+                updateUI();
+            }
+        });
+
+        elements.inhaleBtn.addEventListener('click', () => {
+            if (gameState.isProcessing) return;
+            gameState.selectedAction = 'inhale';
+            updateUI();
+        });
+
+        // Render battle records
+        function renderRecords() {
+            if (gameState.battleRecords.length === 0) {
+                elements.recordsSection.classList.add('hidden');
+                return;
+            }
+
+            elements.recordsSection.classList.remove('hidden');
+            elements.recordsList.innerHTML = gameState.battleRecords.map(record => `
+                <div class="record-item">
+                    <div>
+                        <span class="record-winner">${record.winner}</span>
+                        <span class="record-vs"> 胜 </span>
+                        <span class="record-loser">${record.loser}</span>
+                    </div>
+                    <div class="record-info">${record.rounds}回合 · ${record.timestamp}</div>
+                </div>
+            `).join('');
+        }
+
+        // Override back button to also render records
+        elements.backBtn.addEventListener('click', () => {
+            elements.gameoverScreen.classList.remove('active');
+            elements.startScreen.classList.remove('hidden');
+            elements.startScreen.style.display = 'flex';
+            renderRecords();
+        });
     </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+</body>
 </html>
