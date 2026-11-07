@@ -879,6 +879,13 @@
             elements.gameScreen.classList.add('active');
             elements.gameoverScreen.classList.remove('active');
 
+            // Reset UI states
+            elements.waitingMsg.classList.add('hidden');
+            elements.qiInsufficient.classList.add('hidden');
+            elements.playerLastAction.classList.add('hidden');
+            elements.opponentLastAction.classList.add('hidden');
+            disableActions(false);
+
             addLog('⚔️ 战斗开始！', 'system');
             updateUI();
         }
@@ -1131,6 +1138,10 @@
 
         function endGame(winner, loser, msg) {
             gameState.phase = 'gameOver';
+            
+            // Hide waiting message
+            elements.waitingMsg.classList.add('hidden');
+            elements.qiInsufficient.classList.add('hidden');
             
             // Add battle record
             const record = {
