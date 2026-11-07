@@ -1271,6 +1271,8 @@
             if (gameState.isProcessing) return;
             if (gameState.player.qi === 0) {
                 elements.qiInsufficient.classList.remove('hidden');
+                gameState.selectedAction = null;
+                updateUI();
                 setTimeout(() => {
                     elements.qiInsufficient.classList.add('hidden');
                 }, 1500);
